@@ -1,17 +1,22 @@
 "use client";
 
 import * as React from "react";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { User, Bell, Sliders, Shield, Save, CheckCircle2 } from "lucide-react";
+import { User, Bell, Sliders, Shield, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
   const [saved, setSaved] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-  // Profile form state
+  // Authenticated Profile state
+  const [userId, setUserId] = React.useState<string | null>(null);
   const [fullName, setFullName] = React.useState("Alex Rivera");
   const [email, setEmail] = React.useState("alex@acmepay.io");
   const [company, setCompany] = React.useState("Acme Pay Inc.");
@@ -26,12 +31,81 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = React.useState("UTC (Coordinated Universal Time)");
   const [retentionDays, setRetentionDays] = React.useState("90");
 
-  const handleSave = (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  React.useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          setUserId(user.id);
+          if (user.email) setEmail(user.email);
+          if (user.user_metadata?.full_name) {
+            setFullName(user.user_metadata.full_name);
+          }
+
+          // Fetch profile row from public.profiles table
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", user.id)
+            .single();
+
+          if (profile?.full_name) {
+            setFullName(profile.full_name);
+          }
+        }
+      } catch {
+        // Fall back to default demo values
+      }
+    }
+
+    loadUserProfile();
+  }, [supabase]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-    }, 2000);
+    setSaved(false);
+    setErrorMsg(null);
+    setLoading(true);
+
+    try {
+      if (isSupabaseConfigured() && userId) {
+        // Update user metadata in Supabase Auth
+        await supabase.auth.updateUser({
+          data: { full_name: fullName },
+        });
+
+        // Update profile in public.profiles table (enforced by RLS auth.uid() = id)
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: userId,
+            full_name: fullName,
+            email: email,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) {
+          setErrorMsg(profileError.message);
+          setLoading(false);
+          return;
+        }
+      }
+
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+      }, 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update profile.";
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,7 +122,7 @@ export default function SettingsPage() {
         </div>
 
         {saved && (
-          <div className="inline-flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
+          <div className="inline-flex items-center gap-1.5 text-xs text-emerald-500 font-medium bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
             <CheckCircle2 className="h-4 w-4" /> Changes saved successfully!
           </div>
         )}
@@ -63,7 +137,7 @@ export default function SettingsPage() {
 
         {/* PROFILE TAB */}
         <TabsContent value="profile">
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSaveProfile}>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base font-semibold">User Profile</CardTitle>
@@ -72,11 +146,26 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {errorMsg && (
+                  <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                {userId && (
+                  <div className="rounded-md border border-border/60 bg-muted/30 p-2.5 text-xs">
+                    <span className="font-semibold text-foreground">User ID (RLS Isolated): </span>
+                    <span className="font-mono text-muted-foreground text-[11px]">{userId}</span>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">
                     Full Name
                   </label>
                   <Input
+                    required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -84,13 +173,17 @@ export default function SettingsPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">
-                    Work Email
+                    Email Address
                   </label>
                   <Input
                     type="email"
+                    disabled
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    className="opacity-75 cursor-not-allowed bg-muted/40 font-mono text-xs"
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Managed via Supabase Auth email verification.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -104,8 +197,9 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter className="border-t border-border/60 pt-4 flex justify-end">
-                <Button type="submit" size="sm" className="gap-1.5">
-                  <Save className="h-3.5 w-3.5" /> Save Profile
+                <Button type="submit" size="sm" disabled={loading} className="gap-1.5">
+                  <Save className="h-3.5 w-3.5" />
+                  {loading ? "Saving Profile..." : "Save Profile"}
                 </Button>
               </CardFooter>
             </Card>
@@ -114,7 +208,7 @@ export default function SettingsPage() {
 
         {/* NOTIFICATIONS TAB */}
         <TabsContent value="notifications">
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSaveProfile}>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base font-semibold">Notification Channels</CardTitle>
@@ -175,7 +269,7 @@ export default function SettingsPage() {
                     className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="1">1 failed check (Immediate alert)</option>
-                    <option value="2">2 consecutive failed checks (Recommended to avoid false positives)</option>
+                    <option value="2">2 consecutive failed checks (Recommended)</option>
                     <option value="3">3 consecutive failed checks</option>
                   </select>
                 </div>
@@ -191,7 +285,7 @@ export default function SettingsPage() {
 
         {/* ACCOUNT PREFERENCES TAB */}
         <TabsContent value="preferences">
-          <form onSubmit={handleSave}>
+          <form onSubmit={handleSaveProfile}>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base font-semibold">Account Preferences</CardTitle>

@@ -37,6 +37,37 @@ Pulse is a modern SaaS application health monitoring platform built with Next.js
 
 ---
 
+## 🔐 Phase 2: Authentication & User Management (Supabase)
+
+Pulse integrates real authentication using the official `@supabase/ssr` library with Next.js App Router.
+
+### 1. Configure Environment Variables
+Create or update `.env.local`:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+*(Never include the service_role key in client-accessible code).*
+
+### 2. Run Database Migration in Supabase
+Run the SQL script located in [`supabase/migrations/01_profiles.sql`](file:///c:/Users/aswal/PULSE/supabase/migrations/01_profiles.sql) in your Supabase project's **SQL Editor**.
+
+This script sets up:
+- The `public.profiles` table with `id`, `full_name`, `email`, `created_at`, `updated_at`.
+- Strict **Row Level Security (RLS)** ensuring users only access their own profile (`auth.uid() = id`).
+- An automated PostgreSQL trigger `handle_new_user()` syncing new signups from `auth.users` directly to `public.profiles`.
+
+### 3. Auth Features Implemented
+- **Email & Password Registration:** With name metadata and optional email verification.
+- **Login & Logout:** Real session management via cookies, with immediate header and dropdown state sync.
+- **Password Recovery & Reset:** Email password recovery flow (`/forgot-password` -> `/auth/callback` -> `/reset-password`).
+- **Google OAuth:** Ready out-of-the-box if configured in Supabase Authentication -> Providers -> Google.
+- **Route Protection:** Server-side `middleware.ts` validates sessions using `supabase.auth.getUser()`. Unauthenticated requests to `/dashboard/*` redirect to `/login?redirect=...`. Authenticated users visiting `/login` or `/register` are redirected to `/dashboard`.
+- **Form Enhancements:** Validation, loading indicators, error alerts, success confirmations, and password visibility toggles.
+- **Graceful Unconfigured Mode:** If environment variables are not set yet, an informative notice guide is displayed without breaking navigation.
+
+---
+
 ## 📁 Folder Structure
 
 ```text

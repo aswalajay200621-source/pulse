@@ -2,25 +2,58 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { LogoLink } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { SupabaseNotice } from "@/components/shared/supabase-notice";
+import { ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const supabase = createClient();
+
+  const handlePasswordRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
+    if (!email) {
+      setErrorMsg("Please enter your registered email address.");
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setErrorMsg(
+        "Supabase credentials are not configured yet. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
+      );
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+
+      if (error) {
+        setErrorMsg(error.message);
+      } else {
+        setSubmitted(true);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Password reset failed.";
+      setErrorMsg(message);
+    } finally {
       setLoading(false);
-      setSubmitted(true);
-    }, 500);
+    }
   };
 
   return (
@@ -49,6 +82,8 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
+          <SupabaseNotice />
+
           <Card className="border-border/80 shadow-md">
             {submitted ? (
               <CardContent className="space-y-4 pt-6 text-center">
@@ -59,7 +94,7 @@ export default function ForgotPasswordPage() {
                   <h3 className="text-base font-semibold text-foreground">
                     Check your inbox
                   </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                     If an account exists for <span className="font-mono font-medium text-foreground">{email}</span>, we have sent a secure password reset link.
                   </p>
                 </div>
@@ -72,8 +107,15 @@ export default function ForgotPasswordPage() {
                 </div>
               </CardContent>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handlePasswordRecovery}>
                 <CardContent className="space-y-4 pt-6">
+                  {errorMsg && (
+                    <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed">{errorMsg}</span>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">
                       Email address
@@ -81,6 +123,7 @@ export default function ForgotPasswordPage() {
                     <Input
                       type="email"
                       required
+                      autoComplete="email"
                       placeholder="alex@acmepay.io"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -90,7 +133,7 @@ export default function ForgotPasswordPage() {
 
                 <CardFooter className="flex flex-col gap-3">
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Sending..." : "Send Password Reset Link"}
+                    {loading ? "Sending link..." : "Send Password Reset Link"}
                   </Button>
 
                   <p className="text-center text-xs text-muted-foreground">

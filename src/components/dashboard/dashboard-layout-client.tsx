@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -56,7 +58,61 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Close mobile sidebar on route change
+  // Authenticated user state
+  const [userEmail, setUserEmail] = React.useState<string>("alex@acmepay.io");
+  const [userName, setUserName] = React.useState<string>("Alex Rivera");
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  const supabase = createClient();
+
+  React.useEffect(() => {
+    async function loadUserSession() {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          if (user.email) setUserEmail(user.email);
+          const metaName = user.user_metadata?.full_name;
+          if (metaName) {
+            setUserName(metaName);
+          } else {
+            // Check profiles table
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", user.id)
+              .single();
+
+            if (profile?.full_name) {
+              setUserName(profile.full_name);
+            } else if (user.email) {
+              setUserName(user.email.split("@")[0]);
+            }
+          }
+        }
+      } catch {
+        // Fallback to default demo name if unconfigured
+      }
+    }
+
+    loadUserSession();
+  }, [supabase]);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore network errors
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  };
+
+  // Close mobile sidebar and dropdowns on route change
   React.useEffect(() => {
     setMobileOpen(false);
     setNotificationsOpen(false);
@@ -98,6 +154,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         a.url.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : mockApplications;
+
+  const initials = userName
+    ? userName
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "AR";
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -205,17 +270,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {!collapsed ? (
             <div className="rounded-md border border-border/60 bg-muted/30 p-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-foreground">Acme Pay Org</span>
+                <span className="font-medium text-foreground truncate max-w-[120px]">
+                  {userName}
+                </span>
                 <span className="text-[10px] uppercase font-mono px-1 rounded bg-secondary text-secondary-foreground">
-                  Pro Plan
+                  Pro
                 </span>
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                5 of 20 monitors used
+              <p className="mt-1 text-[11px] text-muted-foreground truncate font-mono">
+                {userEmail}
               </p>
-              <div className="mt-2 h-1 w-full rounded-full bg-border overflow-hidden">
-                <div className="h-full bg-primary rounded-full w-1/4" />
-              </div>
             </div>
           ) : (
             <div className="flex justify-center text-xs font-mono text-muted-foreground py-1">
@@ -332,20 +396,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 }}
                 className="flex items-center gap-2 rounded-md border border-border/70 bg-card p-1 sm:px-2 sm:py-1 text-xs hover:bg-accent transition-colors"
               >
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
-                  AR
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                  {initials}
                 </div>
-                <span className="hidden md:inline font-medium text-foreground">
-                  Alex Rivera
+                <span className="hidden md:inline font-medium text-foreground max-w-[120px] truncate">
+                  {userName}
                 </span>
               </button>
 
               {userMenuOpen && (
                 <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border/80 bg-card shadow-xl z-50 p-2 animate-in fade-in-0 zoom-in-95">
                   <div className="px-2 py-1.5 border-b border-border/60 mb-1">
-                    <p className="text-xs font-semibold text-foreground">Alex Rivera</p>
+                    <p className="text-xs font-semibold text-foreground truncate">{userName}</p>
                     <p className="text-[11px] text-muted-foreground truncate font-mono">
-                      alex@acmepay.io
+                      {userEmail}
                     </p>
                   </div>
                   <Link
@@ -361,12 +425,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     <Sliders className="h-3.5 w-3.5" /> Preferences
                   </Link>
                   <div className="my-1 border-t border-border/60" />
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors"
+                  <button
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors text-left"
                   >
-                    <LogOut className="h-3.5 w-3.5" /> Sign Out
-                  </Link>
+                    <LogOut className="h-3.5 w-3.5" />
+                    {signingOut ? "Signing Out..." : "Sign Out"}
+                  </button>
                 </div>
               )}
             </div>
