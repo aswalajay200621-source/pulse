@@ -2,379 +2,330 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { getApplications } from "@/app/actions/applications";
-import { ApplicationRecord } from "@/lib/supabase/types";
 import {
-  mockApplications,
-  mockLatencyHistory,
-  mockUptimeBars,
-  mockRecentActivity,
-} from "@/data/mock-data";
+  getUnifiedDashboardData,
+  type UnifiedDashboardData,
+} from "@/app/actions/dashboard";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { LatencyAreaChart, UptimeBarStrip } from "@/components/shared/simple-charts";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Server,
-  CheckCircle2,
-  AlertOctagon,
+  Activity,
   ShieldAlert,
-  ArrowUpRight,
-  ExternalLink,
-  ShieldCheck,
   Clock,
+  Bell,
+  Search,
+  RefreshCw,
+  ArrowUpDown,
+  ChevronLeft,
   ChevronRight,
-  Layers,
-  Plus,
 } from "lucide-react";
 
-export default function DashboardOverviewPage() {
-  const [realApps, setRealApps] = React.useState<ApplicationRecord[]>([]);
-  const [loaded, setLoaded] = React.useState(false);
+const PAGE_SIZE = 5;
 
-  React.useEffect(() => {
-    async function fetchDashboardData() {
-      const res = await getApplications();
-      if (res.success && res.data) {
-        setRealApps(res.data);
-      }
-      setLoaded(true);
-    }
-    fetchDashboardData();
+export default function DashboardPage() {
+  const [data, setData] = React.useState<UnifiedDashboardData | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<string>("all");
+  const [sortBy, setSortBy] = React.useState<"name" | "uptime" | "latency">("name");
+  const [sortAsc, setSortAsc] = React.useState(true);
+  const [page, setPage] = React.useState(1);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await getUnifiedDashboardData();
+    if (res.error) setError(res.error);
+    else if (res.data) setData(res.data);
+    setLoading(false);
   }, []);
 
-  // Use real applications if available, otherwise fallback to demo dataset
-  const hasRealApps = realApps.length > 0;
-  const displayAppCount = hasRealApps ? realApps.length : mockApplications.length;
-  const activeAppsCount = hasRealApps
-    ? realApps.filter((a) => a.monitoring_enabled).length
-    : mockApplications.filter((a) => a.status === "online").length;
-  const pausedOrDownCount = displayAppCount - activeAppsCount;
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const filteredApps = React.useMemo(() => {
+    const list = data?.apps ?? [];
+    return list
+      .filter((app) => {
+        if (statusFilter !== "all" && app.status !== statusFilter) return false;
+        const q = search.toLowerCase();
+        if (q && !app.name.toLowerCase().includes(q) && !app.url.toLowerCase().includes(q)) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        let cmp = 0;
+        if (sortBy === "name") cmp = a.name.localeCompare(b.name);
+        else if (sortBy === "uptime") {
+          cmp = (a.uptimePercentage ?? -1) - (b.uptimePercentage ?? -1);
+        } else if (sortBy === "latency") {
+          cmp = (a.latestResponseTime ?? 999999) - (b.latestResponseTime ?? 999999);
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+  }, [data, search, statusFilter, sortBy, sortAsc]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredApps.length / PAGE_SIZE));
+  const pagedApps = filteredApps.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleSort = (col: "name" | "uptime" | "latency") => {
+    if (sortBy === col) setSortAsc(!sortAsc);
+    else {
+      setSortBy(col);
+      setSortAsc(true);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            System Overview
+            Pulse Overview
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Real-time status across your {displayAppCount} monitored application{displayAppCount !== 1 ? "s" : ""} and security posture.
+            Unified application health, security posture, and expiry status.
           </p>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          <Link href="/dashboard/applications">
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Layers className="h-3.5 w-3.5" />
-              Manage Apps ({displayAppCount}/3)
-            </Button>
-          </Link>
-          <Link href="/dashboard/applications">
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Add Application
-            </Button>
-          </Link>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* KPI Statistic Cards */}
+      {error && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
+          {error}
+        </div>
+      )}
+
+      {/* Real KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Applications"
-          value={`${displayAppCount} / 3`}
-          subtitle="Account quota utilized"
-          icon={<Server className="h-4 w-4" />}
+          title="Applications Monitored"
+          value={String(data?.totalApps ?? 0)}
+          subtitle={`${data?.onlineApps ?? 0} online · ${data?.downApps ?? 0} down · ${data?.warningApps ?? 0} warnings`}
+          icon={<Activity className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
-          title="Active Monitoring"
-          value={activeAppsCount}
-          change={activeAppsCount > 0 ? "Operational" : "None active"}
-          changeType="positive"
-          subtitle={`${pausedOrDownCount} paused / offline`}
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+          title="Open Security Findings"
+          value={String(data?.openFindings ?? 0)}
+          subtitle={`${data?.criticalFindings ?? 0} critical severity`}
+          icon={<ShieldAlert className="h-4 w-4 text-rose-500" />}
         />
         <StatCard
-          title="Health Status"
-          value={pausedOrDownCount === 0 ? "100%" : "Attention"}
-          change={pausedOrDownCount > 0 ? `${pausedOrDownCount} Needs Review` : "All Healthy"}
-          changeType={pausedOrDownCount > 0 ? "negative" : "positive"}
-          subtitle="Continuous probe validation"
-          icon={<AlertOctagon className="h-4 w-4 text-amber-500" />}
+          title="Upcoming Expiries"
+          value={String(data?.upcomingExpiriesCount ?? 0)}
+          subtitle="SSL, domain & credentials"
+          icon={<Clock className="h-4 w-4 text-amber-500" />}
         />
         <StatCard
-          title="Security Issues"
-          value="1"
-          change="1 High Severity"
-          changeType="negative"
-          subtitle="TLS & header audit scan"
-          icon={<ShieldAlert className="h-4 w-4 text-amber-500" />}
+          title="Latest Security Scan"
+          value={
+            data?.latestScanAt
+              ? new Date(data.latestScanAt).toLocaleDateString()
+              : "No scans"
+          }
+          subtitle={`${data?.recentAlerts.length ?? 0} recent alerts`}
+          icon={<Bell className="h-4 w-4" />}
         />
       </div>
 
-      {/* Uptime Trend & System Latency */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div>
-              <CardTitle className="text-sm font-semibold">
-                Network Latency Benchmark (24 Hours)
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Average global response time across synthetic probes (84ms baseline)
-              </CardDescription>
-            </div>
-            <Link
-              href="/dashboard/monitoring"
-              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-            >
-              Details <ChevronRight className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <LatencyAreaChart data={mockLatencyHistory} height={180} />
-          </CardContent>
-        </Card>
-
-        {/* Global Uptime strip & SLA card */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              30-Day Fleet Health & SLA
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Aggregate availability calculated across global probe cycles
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-xs text-muted-foreground">Rolling SLA Target</span>
-                <span className="font-mono text-sm font-bold text-foreground">99.90%</span>
-              </div>
-              <div className="flex items-baseline justify-between mb-3">
-                <span className="text-xs text-muted-foreground">Current Realized</span>
-                <span className="font-mono text-sm font-bold text-emerald-500">99.96%</span>
-              </div>
-              <UptimeBarStrip bars={mockUptimeBars} />
-            </div>
-
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1">
-              <div className="flex items-center justify-between text-xs font-medium text-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" /> MTTR Target
-                </span>
-                <span className="font-mono">&lt; 15 mins</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Automated incident alerts dispatched to configured notification channels.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Applications Table */}
+      {/* Application Table */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
           <div>
-            <CardTitle className="text-sm sm:text-base font-semibold">
-              Monitored Applications
-            </CardTitle>
+            <CardTitle className="text-sm font-semibold">Applications</CardTitle>
             <CardDescription className="text-xs">
-              Status, endpoint URL, and quick inspection actions
+              Live status, 24h uptime, latency, and open security findings
             </CardDescription>
           </div>
-          <Link href="/dashboard/applications">
-            <Button variant="outline" size="sm" className="text-xs">
-              View All ({displayAppCount})
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search apps..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="h-8 pl-8 text-xs w-44"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="h-8 rounded-md border border-input bg-card px-2 text-xs"
+            >
+              <option value="all">All Statuses</option>
+              <option value="online">Online</option>
+              <option value="degraded">Degraded</option>
+              <option value="down">Down</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="border-y border-border/70 bg-muted/40 font-mono text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  <th className="py-2.5 px-4 font-medium">Application</th>
-                  <th className="py-2.5 px-4 font-medium">Status</th>
-                  <th className="py-2.5 px-4 font-medium">Monitoring</th>
-                  <th className="py-2.5 px-4 font-medium">Added</th>
-                  <th className="py-2.5 px-4 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {hasRealApps
-                  ? realApps.map((app) => (
-                      <tr
-                        key={app.id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="py-3 px-4">
-                          <div>
-                            <Link
-                              href={`/dashboard/applications/${app.id}`}
-                              className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
-                            >
-                              {app.name}
-                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
-                            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              {app.url}
-                              <a
-                                href={app.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-muted-foreground/60 hover:text-foreground"
-                              >
-                                <ExternalLink className="h-2.5 w-2.5" />
-                              </a>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <StatusBadge status={app.monitoring_enabled ? "online" : "maintenance"} />
-                        </td>
-                        <td className="py-3 px-4 font-mono text-xs">
-                          {app.monitoring_enabled ? "Active" : "Paused"}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
-                          {new Date(app.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <Link href={`/dashboard/applications/${app.id}`}>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                              Inspect
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
-                  : mockApplications.map((app) => (
-                      <tr
-                        key={app.id}
-                        className="hover:bg-muted/30 transition-colors group"
-                      >
-                        <td className="py-3 px-4">
-                          <div>
-                            <Link
-                              href={`/dashboard/applications/${app.id}`}
-                              className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
-                            >
-                              {app.name}
-                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
-                            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              {app.url}
-                              <a
-                                href={app.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-muted-foreground/60 hover:text-foreground"
-                              >
-                                <ExternalLink className="h-2.5 w-2.5" />
-                              </a>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
+          {pagedApps.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              {loading ? "Loading applications..." : "No matching applications found."}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-y border-border/70 bg-muted/40 font-mono text-[11px] uppercase text-muted-foreground">
+                  <tr>
+                    <th className="py-2.5 px-4 font-medium">
+                      <button onClick={() => toggleSort("name")} className="inline-flex items-center gap-1">
+                        Application <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="py-2.5 px-4 font-medium">Status</th>
+                    <th className="py-2.5 px-4 font-medium">
+                      <button onClick={() => toggleSort("uptime")} className="inline-flex items-center gap-1">
+                        Uptime (24h) <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="py-2.5 px-4 font-medium">
+                      <button onClick={() => toggleSort("latency")} className="inline-flex items-center gap-1">
+                        Latency <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="py-2.5 px-4 font-medium">Security</th>
+                    <th className="py-2.5 px-4 font-medium text-right">Last Checked</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60 font-mono">
+                  {pagedApps.map((app) => (
+                    <tr key={app.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4 font-sans">
+                        <Link href={`/dashboard/applications/${app.id}`} className="font-medium text-foreground hover:underline">
+                          {app.name}
+                        </Link>
+                        <div className="text-[11px] text-muted-foreground font-mono">{app.url}</div>
+                      </td>
+                      <td className="py-3 px-4 font-sans">
+                        {app.status === "pending" ? (
+                          <span className="text-xs text-muted-foreground">Pending</span>
+                        ) : (
                           <StatusBadge status={app.status} />
-                        </td>
-                        <td className="py-3 px-4 font-mono text-xs">
-                          Active (Demo)
-                        </td>
-                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
-                          Recent
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <Link href={`/dashboard/applications/${app.id}`}>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                              Inspect
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-              </tbody>
-            </table>
-          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {app.uptimePercentage !== null ? `${app.uptimePercentage}%` : "No data"}
+                      </td>
+                      <td className="py-3 px-4">
+                        {app.latestResponseTime !== null ? `${app.latestResponseTime} ms` : "—"}
+                      </td>
+                      <td className="py-3 px-4">
+                        {app.openFindingsCount > 0 ? (
+                          <span className="text-rose-500">
+                            {app.openFindingsCount} open ({app.criticalFindingsCount} crit)
+                          </span>
+                        ) : (
+                          <span className="text-emerald-500">0 open</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right text-muted-foreground">
+                        {app.lastCheckedAt ? new Date(app.lastCheckedAt).toLocaleTimeString() : "Never"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="h-7 px-2"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="h-7 px-2"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Two-column layout: Recent Activity & Upcoming Expiry */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Bottom Grid: Recent Alerts & Upcoming Expiries */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Recent System Activity
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Automated audit scans, status transitions, and threshold alerts
-            </CardDescription>
+            <CardTitle className="text-sm font-semibold">Recent Alerts</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {mockRecentActivity.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 rounded-lg border border-border/50 bg-card/60 p-3"
-              >
-                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
-                  <Clock className="h-3 w-3" />
+          <CardContent className="space-y-2.5">
+            {(data?.recentAlerts ?? []).length === 0 ? (
+              <div className="text-xs text-muted-foreground">No recent alerts.</div>
+            ) : (
+              data?.recentAlerts.slice(0, 5).map((alert) => (
+                <div key={alert.id} className="rounded-md border border-border/60 p-2.5 text-xs">
+                  <div className="font-medium text-foreground">{alert.title}</div>
+                  <div className="text-muted-foreground mt-0.5">{alert.description}</div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between text-xs">
-                    <p className="font-semibold text-foreground truncate">
-                      {item.title}
-                    </p>
-                    <span className="font-mono text-[11px] text-muted-foreground shrink-0 ml-2">
-                      {item.timestamp}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Upcoming Expiries & Safeguards
-            </CardTitle>
-            <CardDescription className="text-xs">
-              TLS certificate renewal countdowns and domain registration terms
-            </CardDescription>
+            <CardTitle className="text-sm font-semibold">Expiry Watchlist</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {mockApplications
-              .filter((a) => a.sslCertificate.daysRemaining <= 90)
-              .map((app) => (
-                <div
-                  key={app.id}
-                  className="flex items-center justify-between rounded-lg border border-border/50 bg-card/60 p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {app.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground font-mono truncate">
-                      SSL ({app.sslCertificate.issuer})
-                    </p>
+          <CardContent className="space-y-2.5">
+            {(data?.upcomingExpiries ?? []).length === 0 ? (
+              <div className="text-xs text-muted-foreground">No expiry items tracked yet.</div>
+            ) : (
+              data?.upcomingExpiries.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-md border border-border/60 p-2.5 text-xs">
+                  <div>
+                    <div className="font-medium text-foreground">{item.name}</div>
+                    <div className="text-[11px] text-muted-foreground">{item.category.replace("_", " ")}</div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <StatusBadge status={app.sslCertificate.status} />
-                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                      Expires {app.sslCertificate.validUntil}
-                    </p>
+                  <div className="font-mono text-right">
+                    <div>{item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : "Unknown"}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {item.days_remaining !== null ? `${item.days_remaining}d left` : "Unverified"}
+                    </div>
                   </div>
                 </div>
-              ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

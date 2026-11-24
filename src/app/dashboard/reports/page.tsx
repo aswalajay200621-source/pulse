@@ -1,201 +1,227 @@
 "use client";
 
 import * as React from "react";
-import { mockApplications, mockUptimeBars } from "@/data/mock-data";
+import {
+  getWeeklyReports,
+  generateWeeklyReport,
+  type WeeklyReportRecord,
+} from "@/app/actions/reports";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatCard } from "@/components/shared/stat-card";
-import { UptimeBarStrip } from "@/components/shared/simple-charts";
-import {
-  FileText,
-  Download,
-  Calendar,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Printer,
-  Share2,
-} from "lucide-react";
+import { FileText, Plus, Printer, CheckCircle2 } from "lucide-react";
 
-export default function ReportsPage() {
-  const [downloading, setDownloading] = React.useState(false);
+export default function WeeklyReportsPage() {
+  const [reports, setReports] = React.useState<WeeklyReportRecord[]>([]);
+  const [selected, setSelected] = React.useState<WeeklyReportRecord | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [generating, setGenerating] = React.useState(false);
+  const [message, setMessage] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const handleDownload = () => {
-    setDownloading(true);
-    setTimeout(() => {
-      setDownloading(false);
-      alert("Weekly Health PDF report generated successfully (Demo).");
-    }, 800);
+  const loadReports = React.useCallback(async () => {
+    setLoading(true);
+    const res = await getWeeklyReports();
+    if (res.error) setError(res.error);
+    else if (res.reports) {
+      setReports(res.reports);
+      if (res.reports.length > 0 && !selected) {
+        setSelected(res.reports[0]);
+      }
+    }
+    setLoading(false);
+  }, [selected]);
+
+  React.useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setError(null);
+    setMessage(null);
+    const res = await generateWeeklyReport();
+    if (res.error) {
+      setError(res.error);
+    } else if (res.report) {
+      setSelected(res.report);
+      setMessage(
+        res.duplicate
+          ? `Report for ${res.report.period_key} already exists (duplicate prevented).`
+          : `Generated weekly report for ${res.report.period_key}.`
+      );
+      await loadReports();
+    }
+    setGenerating(false);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5 print:hidden">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Weekly Application Health Digest
-            </h1>
-            <span className="rounded bg-primary/10 text-primary border border-primary/20 text-xs font-mono px-2 py-0.5">
-              Week 47, 2026
-            </span>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Weekly Health & Security Reports
+          </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Automated executive summary ready for client delivery or stakeholder review.
+            Automated weekly summaries built from real monitoring, security, and expiry records.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {selected && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="h-8 gap-1.5 text-xs"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          )}
           <Button
-            variant="outline"
             size="sm"
-            onClick={() => window.print()}
-            className="gap-1.5"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="h-8 gap-1.5 text-xs"
           >
-            <Printer className="h-3.5 w-3.5" />
-            Print
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleDownload}
-            disabled={downloading}
-            className="gap-1.5"
-          >
-            <Download className="h-3.5 w-3.5" />
-            {downloading ? "Exporting PDF..." : "Export PDF Report"}
+            <Plus className="h-3.5 w-3.5" />
+            {generating ? "Generating..." : "Generate This Week's Report"}
           </Button>
         </div>
       </div>
 
-      {/* Executive Summary Card */}
-      <Card className="border-border/80 bg-card">
-        <CardHeader className="pb-3 border-b border-border/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-base font-semibold">
-                Executive Health Briefing
-              </CardTitle>
+      {error && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500 print:hidden">
+          {error}
+        </div>
+      )}
+      {message && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-500 print:hidden">
+          {message}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Report History */}
+        <Card className="print:hidden">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">Report History</CardTitle>
+            <CardDescription className="text-xs">Select a period to inspect</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loading ? (
+              <div className="text-xs text-muted-foreground">Loading reports...</div>
+            ) : reports.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No reports generated yet.</div>
+            ) : (
+              reports.map((rep) => (
+                <button
+                  key={rep.id}
+                  onClick={() => setSelected(rep)}
+                  className={`w-full text-left rounded-md border p-3 text-xs transition-colors ${
+                    selected?.id === rep.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border/60 hover:bg-muted/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-medium text-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5" />
+                      {rep.period_key}
+                    </span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {new Date(rep.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    {rep.apps_monitored} apps · {rep.new_findings} new findings
+                  </div>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Selected Report Details (Print-Friendly) */}
+        <Card className="lg:col-span-2 print:border-none print:shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">
+              {selected ? `Pulse Weekly Report — ${selected.period_key}` : "Report Details"}
+            </CardTitle>
+            {selected && (
               <CardDescription className="text-xs">
-                Period: Monday, Nov 17 – Sunday, Nov 23, 2026
+                Period: {new Date(selected.period_start).toLocaleDateString()} –{" "}
+                {new Date(selected.period_end).toLocaleDateString()}
               </CardDescription>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Overall Organization Score: <strong className="text-emerald-500 font-bold text-sm">96.4% (A)</strong>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4 space-y-4">
-          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            During this 7-day monitoring window, Pulse recorded <strong>99.96% uptime</strong> across core services. Four of five production services operated with zero unhandled downtime. One isolated degradation event on the Staging Analytics API occurred due to an expired testing certificate and was logged with full synthetic diagnostic traces.
-          </p>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!selected ? (
+              <div className="text-xs text-muted-foreground">
+                Generate or select a weekly report to view its details.
+              </div>
+            ) : (
+              <div className="space-y-5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Apps Monitored</div>
+                    <div className="text-lg font-bold mt-1">{selected.apps_monitored}</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Uptime</div>
+                    <div className="text-lg font-bold mt-1">
+                      {selected.uptime_percentage !== null ? `${selected.uptime_percentage}%` : "No data"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Avg Latency</div>
+                    <div className="text-lg font-bold mt-1">
+                      {selected.avg_response_time !== null ? `${selected.avg_response_time} ms` : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Incidents / Recoveries</div>
+                    <div className="text-lg font-bold mt-1">
+                      {selected.downtime_incidents} / {selected.recovery_events}
+                    </div>
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <span className="text-[11px] font-mono text-muted-foreground uppercase">
-                Uptime Attainment
-              </span>
-              <p className="text-xl font-bold font-mono text-foreground mt-1">99.96%</p>
-              <p className="text-[11px] text-emerald-500 mt-0.5">Exceeded 99.90% SLA target</p>
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">New Security Findings</div>
+                    <div className="text-base font-bold mt-1">{selected.new_findings}</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Resolved Findings</div>
+                    <div className="text-base font-bold mt-1 text-emerald-500">
+                      {selected.resolved_findings}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/60 p-3">
+                    <div className="text-muted-foreground">Upcoming Expiries</div>
+                    <div className="text-base font-bold mt-1 text-amber-500">
+                      {selected.upcoming_expiries}
+                    </div>
+                  </div>
+                </div>
 
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <span className="text-[11px] font-mono text-muted-foreground uppercase">
-                Mean Time to Detect (MTTD)
-              </span>
-              <p className="text-xl font-bold font-mono text-foreground mt-1">42 secs</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Synthetic probe reaction speed</p>
-            </div>
-
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <span className="text-[11px] font-mono text-muted-foreground uppercase">
-                Mean Time to Resolve (MTTR)
-              </span>
-              <p className="text-xl font-bold font-mono text-foreground mt-1">8.4 mins</p>
-              <p className="text-[11px] text-emerald-500 mt-0.5">Well within 30m response tier</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Target Breakdown Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold">
-            Weekly Breakdown by Target
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Individual target availability, average latency, and detected anomalies
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="border-y border-border/70 bg-muted/40 font-mono text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  <th className="py-2.5 px-4 font-medium">Application</th>
-                  <th className="py-2.5 px-4 font-medium">Weekly Uptime</th>
-                  <th className="py-2.5 px-4 font-medium">Avg Latency</th>
-                  <th className="py-2.5 px-4 font-medium">Incidents</th>
-                  <th className="py-2.5 px-4 font-medium text-right">Health Grade</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {mockApplications.map((app) => (
-                  <tr key={app.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <span className="font-semibold text-foreground">{app.name}</span>
-                      <p className="text-[11px] font-mono text-muted-foreground">{app.url}</p>
-                    </td>
-                    <td className="py-3 px-4 font-mono font-medium">{app.uptimePercent}%</td>
-                    <td className="py-3 px-4 font-mono">
-                      {app.avgLatencyMs > 0 ? `${app.avgLatencyMs} ms` : "—"}
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      {app.status === "down" ? "1 incident" : "0 incidents"}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold">
-                      <span
-                        className={
-                          app.healthScore >= 90
-                            ? "text-emerald-500"
-                            : app.healthScore >= 75
-                            ? "text-amber-500"
-                            : "text-rose-500"
-                        }
-                      >
-                        {app.healthScore >= 95
-                          ? "A+"
-                          : app.healthScore >= 90
-                          ? "A"
-                          : app.healthScore >= 75
-                          ? "B"
-                          : "C-"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 30-Day Fleet Timeline Visual */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            Fleet Historical Reliability
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Continuity overview for the rolling 30-day reporting window
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <UptimeBarStrip bars={mockUptimeBars} />
-        </CardContent>
-      </Card>
+                <div>
+                  <div className="font-semibold text-foreground mb-2">Recommended Actions</div>
+                  <ul className="space-y-1.5">
+                    {(selected.recommended_actions || []).map((action, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-muted-foreground">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
