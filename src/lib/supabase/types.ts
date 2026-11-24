@@ -24,7 +24,34 @@ export interface MonitoringCheckRecord {
   status: "online" | "degraded" | "down" | "maintenance";
   status_code: number | null;
   response_time: number | null; // in ms
+  error_message?: string | null;
+  is_slow?: boolean;
+  job_id?: string | null;
   checked_at: string;
+}
+
+export interface MonitoringIncidentRecord {
+  id: string;
+  application_id: string;
+  user_id: string;
+  status: "open" | "resolved";
+  consecutive_failures: number;
+  started_at: string;
+  resolved_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface MonitoringJobRecord {
+  id: string;
+  idempotency_key: string | null;
+  status: "running" | "completed" | "failed";
+  total_apps: number;
+  succeeded_count: number;
+  failed_count: number;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
 }
 
 export interface SecurityScanRecord {
@@ -63,6 +90,45 @@ export interface ExpiryRecord {
   expiry_type: "ssl_certificate" | "domain" | "api_key" | "token";
   expiry_date: string;
   created_at: string;
+}
+
+export type ExpiryCategory =
+  | "ssl_certificate"
+  | "domain"
+  | "api_key"
+  | "oauth_token"
+  | "service_account"
+  | "integration"
+  | "other";
+
+export type ExpiryStatus = "healthy" | "expiring_soon" | "expired" | "unknown" | "error";
+
+export interface ExpiryItemRecord {
+  id: string;
+  user_id: string;
+  application_id: string | null;
+  category: ExpiryCategory;
+  name: string;
+  description: string | null;
+  target_host: string | null;
+  issuer: string | null;
+  expiry_date: string | null;
+  status: ExpiryStatus;
+  days_remaining: number | null;
+  source: "tls_handshake" | "rdap" | "manual";
+  error_message: string | null;
+  last_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpiryReminderRecord {
+  id: string;
+  expiry_item_id: string;
+  user_id: string;
+  threshold: "30d" | "7d" | "1d" | "expired";
+  expiry_date_snapshot: string;
+  sent_at: string;
 }
 
 export interface NotificationPreferenceRecord {
