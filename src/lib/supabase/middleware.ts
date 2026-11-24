@@ -1,19 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isSupabaseConfigured } from "./config";
+import { isSupabaseConfigured, getCleanSupabaseUrl } from "./config";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  // If Supabase environment variables are not yet configured, allow traffic to pass through
-  // so the user can see the configuration instructions banner instead of being locked out.
   if (!isSupabaseConfigured()) {
     return supabaseResponse;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseUrl = getCleanSupabaseUrl();
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -35,8 +33,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // IMPORTANT: Avoid using getSession() on the server, as it does not validate the auth token with Supabase.
-  // getUser() validates the token against the Supabase Auth server.
   const {
     data: { user },
   } = await supabase.auth.getUser();

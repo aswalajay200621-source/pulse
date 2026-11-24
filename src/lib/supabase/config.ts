@@ -11,3 +11,12 @@ export function isSupabaseConfigured(): boolean {
 
   return true;
 }
+
+/**
+ * Returns the normalized Supabase URL stripped of any trailing slashes or /rest/v1 paths.
+ */
+export function getCleanSupabaseUrl(): string {
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
+  url = url.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+  return url;
+}
