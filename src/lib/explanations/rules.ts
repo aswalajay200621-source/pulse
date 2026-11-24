@@ -1,0 +1,520 @@
+export type ExplanationCategory =
+  | "uptime"
+  | "performance"
+  | "ssl_expiry"
+  | "domain_expiry"
+  | "secret_exposure"
+  | "vulnerable_dependency"
+  | "security_header"
+  | "insecure_http"
+  | "credential_expiry";
+
+export type ExplanationSeverity =
+  | "critical"
+  | "high"
+  | "medium"
+  | "low"
+  | "informational";
+
+export interface ExplanationRule {
+  ruleId: string;
+  category: ExplanationCategory;
+  title: string;
+  severity: ExplanationSeverity;
+  technicalDescription: string;
+  plainExplanation: string;
+  whyItMatters: string;
+  possibleConsequences: string;
+  recommendedFix: string;
+  detectionSource: string;
+  documentationUrl?: string;
+}
+
+export const EXPLANATION_RULES: ExplanationRule[] = [
+  // ===========================================================================
+  // 1. UPTIME & DOWNTIME (4 rules)
+  // ===========================================================================
+  {
+    ruleId: "uptime-confirmed-downtime",
+    category: "uptime",
+    title: "Confirmed Application Downtime",
+    severity: "critical",
+    technicalDescription: "Three consecutive HTTP/HTTPS health checks failed.",
+    plainExplanation: "Your application did not respond successfully to three health checks in a row.",
+    whyItMatters: "Users trying to visit or use your application right now are likely seeing errors or timeouts.",
+    possibleConsequences: "Lost traffic, failed user workflows, and reduced trust if the outage continues.",
+    recommendedFix: "Check your hosting provider status, server logs, and recent deployments to see why the service stopped responding.",
+    detectionSource: "Pulse Uptime Monitor",
+  },
+  {
+    ruleId: "uptime-http-5xx",
+    category: "uptime",
+    title: "Server Error Response (5xx)",
+    severity: "high",
+    technicalDescription: "The endpoint returned an HTTP 500-level status code.",
+    plainExplanation: "Your server is reachable, but it returned an internal error instead of a normal page or response.",
+    whyItMatters: "Visitors are seeing an error page rather than your working application.",
+    possibleConsequences: "Broken features, failed API requests, and degraded user experience.",
+    recommendedFix: "Inspect your application error logs for unhandled exceptions, database connection issues, or misconfigured environment variables.",
+    detectionSource: "Pulse Uptime Monitor",
+    documentationUrl: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses",
+  },
+  {
+    ruleId: "uptime-timeout",
+    category: "uptime",
+    title: "Request Timed Out",
+    severity: "high",
+    technicalDescription: "The HTTP/HTTPS request did not complete within the configured 10-second timeout.",
+    plainExplanation: "Your application took too long to respond, so the health check gave up waiting.",
+    whyItMatters: "If your server takes more than 10 seconds to reply, real users will likely close the page.",
+    possibleConsequences: "Users experience frozen loading screens and failed requests.",
+    recommendedFix: "Check for overloaded CPU/memory, slow database queries, or external API calls that are hanging.",
+    detectionSource: "Pulse Uptime Monitor",
+  },
+  {
+    ruleId: "uptime-dns-failure",
+    category: "uptime",
+    title: "DNS Resolution Failed",
+    severity: "critical",
+    technicalDescription: "The domain name could not be resolved to an IP address.",
+    plainExplanation: "The internet address (DNS) for your application could not be found.",
+    whyItMatters: "Browsers cannot locate your server if DNS records are missing or misconfigured.",
+    possibleConsequences: "Your entire site or API is unreachable for users.",
+    recommendedFix: "Verify your DNS A/CNAME records at your domain registrar and ensure your domain has not expired.",
+    detectionSource: "Pulse Uptime Monitor",
+  },
+
+  // ===========================================================================
+  // 2. SLOW RESPONSE TIME (2 rules)
+  // ===========================================================================
+  {
+    ruleId: "perf-slow-response",
+    category: "performance",
+    title: "Slow Response Time (>1,500ms)",
+    severity: "medium",
+    technicalDescription: "The endpoint responded in more than 1,500 milliseconds.",
+    plainExplanation: "Your application is online, but it is responding noticeably slower than normal.",
+    whyItMatters: "Slow pages frustrate users and can hurt search engine rankings.",
+    possibleConsequences: "Higher bounce rates and timeouts under heavier traffic.",
+    recommendedFix: "Profile slow database queries, enable caching, or check if your server is running low on CPU or memory.",
+    detectionSource: "Pulse Performance Monitor",
+  },
+  {
+    ruleId: "perf-severe-latency",
+    category: "performance",
+    title: "Severe Latency (>5,000ms)",
+    severity: "high",
+    technicalDescription: "The endpoint took over 5,000 milliseconds to respond.",
+    plainExplanation: "Your application is taking over 5 seconds to answer a single request.",
+    whyItMatters: "Most users will abandon a page that takes more than a few seconds to load.",
+    possibleConsequences: "Severe user drop-off and cascading timeouts in dependent services.",
+    recommendedFix: "Investigate blocking operations, unindexed database queries, or cold-start delays immediately.",
+    detectionSource: "Pulse Performance Monitor",
+  },
+
+  // ===========================================================================
+  // 3. SSL CERTIFICATE EXPIRY (4 rules)
+  // ===========================================================================
+  {
+    ruleId: "ssl-expired",
+    category: "ssl_expiry",
+    title: "SSL Certificate Expired",
+    severity: "critical",
+    technicalDescription: "The TLS certificate valid_to date is in the past.",
+    plainExplanation: "Your website's security certificate has expired.",
+    whyItMatters: "Modern browsers block visitors from opening sites with expired certificates and show a scary warning.",
+    possibleConsequences: "Users cannot safely access your site, and API clients will reject connections.",
+    recommendedFix: "Renew and install a new TLS/SSL certificate immediately (or check why auto-renewal like Let's Encrypt failed).",
+    detectionSource: "Pulse TLS Inspector",
+  },
+  {
+    ruleId: "ssl-expiring-7d",
+    category: "ssl_expiry",
+    title: "SSL Certificate Expiring Within 7 Days",
+    severity: "high",
+    technicalDescription: "The TLS certificate expires in 7 days or fewer.",
+    plainExplanation: "Your website's security certificate is about to expire very soon.",
+    whyItMatters: "Visitors may encounter browser security warnings if the certificate expires.",
+    possibleConsequences: "Sudden site outage for browsers and API integrations once the expiry date passes.",
+    recommendedFix: "Renew the certificate before its expiry date and verify automatic renewal is working.",
+    detectionSource: "Pulse TLS Inspector",
+  },
+  {
+    ruleId: "ssl-expiring-30d",
+    category: "ssl_expiry",
+    title: "SSL Certificate Expiring Within 30 Days",
+    severity: "medium",
+    technicalDescription: "The TLS certificate expires in 30 days or fewer.",
+    plainExplanation: "Your website's security certificate is approaching its expiry date.",
+    whyItMatters: "Visitors may encounter browser security warnings if the certificate expires.",
+    possibleConsequences: "Service disruption if renewal is forgotten.",
+    recommendedFix: "Renew the certificate before its expiry date.",
+    detectionSource: "Pulse TLS Inspector",
+  },
+  {
+    ruleId: "ssl-untrusted-chain",
+    category: "ssl_expiry",
+    title: "Untrusted or Invalid SSL Certificate",
+    severity: "high",
+    technicalDescription: "TLS handshake completed, but certificate chain verification failed.",
+    plainExplanation: "Your website's security certificate is not trusted by standard browsers.",
+    whyItMatters: "Browsers will warn users that the connection is not private.",
+    possibleConsequences: "Users will be blocked from visiting your site and API calls may fail.",
+    recommendedFix: "Ensure you are using a certificate from a trusted Certificate Authority and that intermediate certificates are properly installed.",
+    detectionSource: "Pulse TLS Inspector",
+  },
+
+  // ===========================================================================
+  // 4. DOMAIN EXPIRY (3 rules)
+  // ===========================================================================
+  {
+    ruleId: "domain-expired",
+    category: "domain_expiry",
+    title: "Domain Registration Expired",
+    severity: "critical",
+    technicalDescription: "RDAP registry data indicates the domain registration has passed its expiration date.",
+    plainExplanation: "Your domain name registration has expired.",
+    whyItMatters: "If a domain expires, it stops pointing to your servers and someone else could eventually register it.",
+    possibleConsequences: "Complete loss of website, API, and email availability.",
+    recommendedFix: "Log in to your domain registrar immediately and renew the domain.",
+    detectionSource: "Pulse RDAP Checker",
+  },
+  {
+    ruleId: "domain-expiring-soon",
+    category: "domain_expiry",
+    title: "Domain Registration Expiring Soon",
+    severity: "high",
+    technicalDescription: "RDAP registry data shows the domain expires within 30 days.",
+    plainExplanation: "Your domain name is scheduled to expire soon.",
+    whyItMatters: "Letting a domain expire will take your entire application offline.",
+    possibleConsequences: "Downtime and potential loss of domain ownership.",
+    recommendedFix: "Renew your domain at your registrar and enable auto-renew.",
+    detectionSource: "Pulse RDAP Checker",
+  },
+  {
+    ruleId: "domain-expiry-unknown",
+    category: "domain_expiry",
+    title: "Domain Expiry Unavailable",
+    severity: "informational",
+    technicalDescription: "RDAP did not return an expiration date (unsupported TLD, rate limit, or redacted).",
+    plainExplanation: "Pulse could not verify your domain's expiry date automatically.",
+    whyItMatters: "Some domain registries hide expiry dates or do not support automated RDAP lookups.",
+    possibleConsequences: "Pulse cannot remind you automatically before this domain expires.",
+    recommendedFix: "Check your domain registrar dashboard manually and consider adding a manual reminder.",
+    detectionSource: "Pulse RDAP Checker",
+  },
+
+  // ===========================================================================
+  // 5. EXPOSED SECRETS (11 rules matching secret-scanner.ts)
+  // ===========================================================================
+  {
+    ruleId: "aws-access-key",
+    category: "secret_exposure",
+    title: "Exposed AWS Access Key ID",
+    severity: "critical",
+    technicalDescription: "An AWS Access Key ID pattern (AKIA/ASIA/AROA/AIDA) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain an AWS Access Key.",
+    whyItMatters: "If the key is active and unauthorized people obtain it, they may access your AWS account and cloud resources.",
+    possibleConsequences: "Unauthorized cloud usage, data exposure, or unexpected AWS billing.",
+    recommendedFix: "Revoke or rotate the key in AWS IAM immediately, check CloudTrail for usage, and remove it from Git history.",
+    detectionSource: "Pulse Secret Scanner",
+    documentationUrl: "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html",
+  },
+  {
+    ruleId: "aws-secret-key",
+    category: "secret_exposure",
+    title: "Exposed AWS Secret Access Key",
+    severity: "critical",
+    technicalDescription: "An AWS Secret Access Key assignment was detected in repository source.",
+    plainExplanation: "Your repository appears to contain an AWS Secret Key.",
+    whyItMatters: "Combined with an Access Key ID, this grants full programmatic access to your AWS services.",
+    possibleConsequences: "Account compromise, data theft, or resource destruction.",
+    recommendedFix: "Revoke the key pair in AWS IAM immediately and store secrets in environment variables instead.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "github-token",
+    category: "secret_exposure",
+    title: "Exposed GitHub Personal Access Token",
+    severity: "critical",
+    technicalDescription: "A GitHub token pattern (ghp_/gho_/github_pat_) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain a GitHub access token.",
+    whyItMatters: "Anyone with this token can read or modify repositories and data that your GitHub account can access.",
+    possibleConsequences: "Unauthorized code changes, private repo leaks, or supply-chain tampering.",
+    recommendedFix: "Revoke the token at github.com/settings/tokens immediately and generate a new one stored only in environment variables.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "google-api-key",
+    category: "secret_exposure",
+    title: "Exposed Google API Key",
+    severity: "critical",
+    technicalDescription: "A Google API Key pattern (AIza...) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain a Google API key. Someone with access to the repository may be able to use it.",
+    whyItMatters: "If the key is active and unauthorized people obtain it, they may access Google APIs billed to your account.",
+    possibleConsequences: "Quota exhaustion or unexpected Google Cloud charges.",
+    recommendedFix: "Restrict or rotate the key in Google Cloud Console and move it to server-side environment variables.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "stripe-secret-key",
+    category: "secret_exposure",
+    title: "Exposed Stripe Live Secret Key",
+    severity: "critical",
+    technicalDescription: "A Stripe live secret key (sk_live_/rk_live_) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain a live Stripe secret key.",
+    whyItMatters: "This key can read customer payment data, issue refunds, and modify your Stripe account.",
+    possibleConsequences: "Financial loss and exposure of sensitive payment records.",
+    recommendedFix: "Roll the secret key in the Stripe Dashboard immediately and store it only in server-side environment variables.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "stripe-publishable-key",
+    category: "secret_exposure",
+    title: "Stripe Publishable Key Detected",
+    severity: "low",
+    technicalDescription: "A Stripe live publishable key (pk_live_) was detected in repository source.",
+    plainExplanation: "A Stripe publishable key was found in your code.",
+    whyItMatters: "Publishable keys are meant for client-side use, though keeping configuration in environment variables is cleaner.",
+    possibleConsequences: "Minimal risk on its own, as publishable keys cannot access sensitive Stripe data.",
+    recommendedFix: "Verify this is intentional and consider moving it to a public environment variable.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "sendgrid-api-key",
+    category: "secret_exposure",
+    title: "Exposed SendGrid API Key",
+    severity: "critical",
+    technicalDescription: "A SendGrid API key (SG....) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain a SendGrid email API key.",
+    whyItMatters: "Unauthorized users could send emails pretending to be your application.",
+    possibleConsequences: "Spamming from your domain, damaged sender reputation, and account suspension.",
+    recommendedFix: "Revoke the key in SendGrid immediately and create a new key stored in environment variables.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "twilio-sid",
+    category: "secret_exposure",
+    title: "Twilio Account SID Detected",
+    severity: "medium",
+    technicalDescription: "A Twilio Account SID pattern (AC...) was detected in repository source.",
+    plainExplanation: "Your repository appears to contain a Twilio Account SID.",
+    whyItMatters: "Account identifiers should be kept in configuration rather than hardcoded in source files.",
+    possibleConsequences: "If paired with an Auth Token, it could allow unauthorized SMS or voice usage.",
+    recommendedFix: "Move the SID to environment variables and ensure no Auth Token is committed.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "private-key-pem",
+    category: "secret_exposure",
+    title: "Exposed PEM Private Key",
+    severity: "critical",
+    technicalDescription: "A PEM-encoded private key header was detected in repository source.",
+    plainExplanation: "Your repository contains a private cryptographic key.",
+    whyItMatters: "Private keys prove your server's or account's identity and must never be shared.",
+    possibleConsequences: "Impersonation, decrypted traffic, or unauthorized server access.",
+    recommendedFix: "Revoke any certificates or SSH access using this key, generate a new key pair, and remove the file from Git history.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "db-connection-string",
+    category: "secret_exposure",
+    title: "Exposed Database Connection String",
+    severity: "critical",
+    technicalDescription: "A database URI containing an embedded username and password was detected.",
+    plainExplanation: "Your repository contains a database address with a password inside it.",
+    whyItMatters: "Anyone who reads this file could connect directly to your database.",
+    possibleConsequences: "Data breach, data deletion, or unauthorized modification of user records.",
+    recommendedFix: "Change your database password immediately and load the connection string from an environment variable.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+  {
+    ruleId: "generic-high-entropy",
+    category: "secret_exposure",
+    title: "Potential Hardcoded Secret",
+    severity: "high",
+    technicalDescription: "A high-entropy string was assigned to a credential-named variable.",
+    plainExplanation: "A variable named like a password or API key has a hardcoded secret-looking value.",
+    whyItMatters: "Hardcoded credentials in source code can be leaked if the repository is shared or compromised.",
+    possibleConsequences: "Unauthorized access if the value is a real credential.",
+    recommendedFix: "Check if this is a real secret. If so, rotate it and move it to an environment variable.",
+    detectionSource: "Pulse Secret Scanner",
+  },
+
+  // ===========================================================================
+  // 6. VULNERABLE DEPENDENCIES (2 rules)
+  // ===========================================================================
+  {
+    ruleId: "dep-vuln-with-fix",
+    category: "vulnerable_dependency",
+    title: "Vulnerable Package With Available Fix",
+    severity: "high",
+    technicalDescription: "OSV reported a known vulnerability in an installed dependency with a patched version available.",
+    plainExplanation: "One of the third-party packages your project uses has a known security flaw, and a fixed version exists.",
+    whyItMatters: "Attackers often scan for apps using outdated packages with public vulnerabilities.",
+    possibleConsequences: "Depending on the flaw, attackers could crash your app or exploit it.",
+    recommendedFix: "Update the package to the fixed version listed in the technical details and redeploy.",
+    detectionSource: "OSV Vulnerability Database",
+    documentationUrl: "https://osv.dev/",
+  },
+  {
+    ruleId: "dep-vuln-no-fix",
+    category: "vulnerable_dependency",
+    title: "Vulnerable Package (No Fixed Version Listed)",
+    severity: "medium",
+    technicalDescription: "OSV reported a vulnerability in an installed dependency without a listed fixed version.",
+    plainExplanation: "One of your project's packages has a known security issue, though no automatic upgrade version is listed.",
+    whyItMatters: "You should review whether the vulnerable feature affects your app.",
+    possibleConsequences: "Potential exposure if your code uses the affected functionality.",
+    recommendedFix: "Check the OSV advisory link for workarounds, or consider replacing the package if it is unmaintained.",
+    detectionSource: "OSV Vulnerability Database",
+    documentationUrl: "https://osv.dev/",
+  },
+
+  // ===========================================================================
+  // 7. MISSING SECURITY HEADERS (7 rules matching header-checker.ts)
+  // ===========================================================================
+  {
+    ruleId: "missing-hsts",
+    category: "security_header",
+    title: "Missing HSTS Header",
+    severity: "high",
+    technicalDescription: "The Strict-Transport-Security HTTP response header is absent on an HTTPS endpoint.",
+    plainExplanation: "Your site uses HTTPS, but it does not tell browsers to always remember to use HTTPS.",
+    whyItMatters: "Without HSTS, attackers on public Wi-Fi could try to downgrade a visitor's connection to insecure HTTP.",
+    possibleConsequences: "Traffic interception or session hijacking on untrusted networks.",
+    recommendedFix: "Add the header: Strict-Transport-Security: max-age=63072000; includeSubDomains; preload",
+    detectionSource: "Pulse Header Checker",
+    documentationUrl: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+  },
+  {
+    ruleId: "missing-csp",
+    category: "security_header",
+    title: "Missing Content Security Policy (CSP)",
+    severity: "high",
+    technicalDescription: "The Content-Security-Policy HTTP response header is absent.",
+    plainExplanation: "Your site does not have a Content Security Policy telling browsers which scripts are safe to run.",
+    whyItMatters: "A strong CSP helps stop Cross-Site Scripting (XSS) attacks even if a bug exists in your code.",
+    possibleConsequences: "Malicious scripts could run in users' browsers and steal session data.",
+    recommendedFix: "Add a Content-Security-Policy header restricting scripts and resources to trusted origins.",
+    detectionSource: "Pulse Header Checker",
+    documentationUrl: "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+  },
+  {
+    ruleId: "missing-x-frame-options",
+    category: "security_header",
+    title: "Missing Clickjacking Protection (X-Frame-Options)",
+    severity: "medium",
+    technicalDescription: "Neither X-Frame-Options nor CSP frame-ancestors is configured.",
+    plainExplanation: "Other websites may be able to embed your application inside a hidden frame.",
+    whyItMatters: "Attackers can trick users into clicking buttons on your site without realizing it (clickjacking).",
+    possibleConsequences: "Users tricked into performing unintended actions.",
+    recommendedFix: "Add X-Frame-Options: DENY (or SAMEORIGIN) to your server responses.",
+    detectionSource: "Pulse Header Checker",
+    documentationUrl: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options",
+  },
+  {
+    ruleId: "missing-x-content-type-options",
+    category: "security_header",
+    title: "Missing X-Content-Type-Options Header",
+    severity: "medium",
+    technicalDescription: "The X-Content-Type-Options: nosniff header is absent.",
+    plainExplanation: "Browsers are allowed to guess file types instead of strictly following what your server says.",
+    whyItMatters: "MIME-type sniffing can allow uploaded or served files to be treated as executable scripts.",
+    possibleConsequences: "Increased risk of script injection if user-uploaded content is served.",
+    recommendedFix: "Add the header: X-Content-Type-Options: nosniff",
+    detectionSource: "Pulse Header Checker",
+  },
+  {
+    ruleId: "missing-referrer-policy",
+    category: "security_header",
+    title: "Missing Referrer-Policy Header",
+    severity: "low",
+    technicalDescription: "The Referrer-Policy HTTP response header is absent.",
+    plainExplanation: "When users click external links on your site, their browser may send the full page URL to the other site.",
+    whyItMatters: "URLs sometimes contain sensitive IDs or tokens you don't want shared with third-party sites.",
+    possibleConsequences: "Minor information leakage to external websites.",
+    recommendedFix: "Add the header: Referrer-Policy: strict-origin-when-cross-origin",
+    detectionSource: "Pulse Header Checker",
+  },
+  {
+    ruleId: "server-banner-exposed",
+    category: "security_header",
+    title: "Server Software Banner Exposed",
+    severity: "low",
+    technicalDescription: "The Server response header discloses web server software details.",
+    plainExplanation: "Your server announces which web server software it is running.",
+    whyItMatters: "Hiding version banners makes it slightly harder for automated scanners to target known server bugs.",
+    possibleConsequences: "Makes reconnaissance easier for attackers.",
+    recommendedFix: "Configure your web server or reverse proxy to suppress or simplify the Server header.",
+    detectionSource: "Pulse Header Checker",
+  },
+  {
+    ruleId: "x-powered-by-exposed",
+    category: "security_header",
+    title: "X-Powered-By Header Exposed",
+    severity: "low",
+    technicalDescription: "The X-Powered-By header reveals the backend framework.",
+    plainExplanation: "Your application tells visitors which framework (such as Express or Next.js) powers it.",
+    whyItMatters: "Sharing framework details unnecessarily helps attackers narrow down potential exploits.",
+    possibleConsequences: "Easier fingerprinting by automated scanners.",
+    recommendedFix: "Disable the X-Powered-By header in your framework configuration.",
+    detectionSource: "Pulse Header Checker",
+  },
+
+  // ===========================================================================
+  // 8. INSECURE HTTP (1 rule)
+  // ===========================================================================
+  {
+    ruleId: "insecure-http",
+    category: "insecure_http",
+    title: "Application Served Over Insecure HTTP",
+    severity: "high",
+    technicalDescription: "The application URL uses http:// instead of https://.",
+    plainExplanation: "Your application is using unencrypted HTTP instead of HTTPS.",
+    whyItMatters: "Data sent over HTTP—including passwords and cookies—can be read or modified by anyone on the same network.",
+    possibleConsequences: "Eavesdropping, stolen logins, and browser 'Not Secure' warnings.",
+    recommendedFix: "Enable HTTPS with a valid TLS certificate and redirect all HTTP traffic to HTTPS.",
+    detectionSource: "Pulse Header Checker",
+  },
+
+  // ===========================================================================
+  // 9. CREDENTIAL EXPIRY REMINDERS (3 rules)
+  // ===========================================================================
+  {
+    ruleId: "credential-expired",
+    category: "credential_expiry",
+    title: "Credential Expired",
+    severity: "critical",
+    technicalDescription: "A user-tracked credential has passed its configured expiry date.",
+    plainExplanation: "A credential or API key you are tracking has passed its expiry date.",
+    whyItMatters: "Expired credentials usually stop working immediately, breaking integrations.",
+    possibleConsequences: "Failed API calls, broken logins, or service outages.",
+    recommendedFix: "Rotate or renew the credential with its provider and update your application's environment variables.",
+    detectionSource: "Pulse Expiry Tracker",
+  },
+  {
+    ruleId: "credential-expiring-7d",
+    category: "credential_expiry",
+    title: "Credential Expiring Within 7 Days",
+    severity: "high",
+    technicalDescription: "A user-tracked credential expires in 7 days or fewer.",
+    plainExplanation: "A credential you are tracking will expire within the next week.",
+    whyItMatters: "If it expires before you rotate it, connected services will stop working.",
+    possibleConsequences: "Unexpected integration failures.",
+    recommendedFix: "Generate a new credential before the expiry date and update your deployment configuration.",
+    detectionSource: "Pulse Expiry Tracker",
+  },
+  {
+    ruleId: "credential-expiring-30d",
+    category: "credential_expiry",
+    title: "Credential Expiring Within 30 Days",
+    severity: "medium",
+    technicalDescription: "A user-tracked credential expires in 30 days or fewer.",
+    plainExplanation: "A credential you are tracking is approaching its expiry date.",
+    whyItMatters: "Planning credential rotation early prevents last-minute outages.",
+    possibleConsequences: "Potential integration downtime if forgotten.",
+    recommendedFix: "Schedule time to rotate this credential and update its reminder date in Pulse.",
+    detectionSource: "Pulse Expiry Tracker",
+  },
+];

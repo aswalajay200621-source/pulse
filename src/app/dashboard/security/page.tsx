@@ -6,6 +6,8 @@ import {
   triggerManualScan,
   updateFindingStatus,
 } from "@/app/actions/security";
+import { explainFinding } from "@/lib/explanations/engine";
+import { FindingExplanationCard } from "@/components/shared/finding-explanation-card";
 import type {
   SecurityScanRecord,
   SecurityFindingRecord,
@@ -293,12 +295,22 @@ export default function SecurityScansPage() {
                   </div>
                 )}
 
-                {finding.remediation && (
-                  <div className="mt-3 rounded-md border border-border/50 bg-muted/30 p-2.5 text-xs">
-                    <span className="font-semibold text-foreground">Remediation: </span>
-                    <span className="text-muted-foreground">{finding.remediation}</span>
-                  </div>
-                )}
+                <FindingExplanationCard
+                  explained={explainFinding({
+                    ruleId: finding.rule_id,
+                    category: finding.category,
+                    source: finding.source,
+                    severity: finding.severity,
+                    title: finding.title,
+                    description: finding.description,
+                    remediation: finding.remediation,
+                    affectedResource: finding.affected_resource,
+                    filePath: finding.file_path,
+                    packageName: finding.package_name,
+                    fixedVersion: finding.fixed_version,
+                    timestamp: finding.first_seen_at || finding.created_at,
+                  })}
+                />
               </div>
             ))
           )}
