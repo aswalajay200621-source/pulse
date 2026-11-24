@@ -61,6 +61,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Authenticated user state
   const [userEmail, setUserEmail] = React.useState<string>("alex@acmepay.io");
   const [userName, setUserName] = React.useState<string>("Alex Rivera");
+  const [appCount, setAppCount] = React.useState<number>(0);
   const [signingOut, setSigningOut] = React.useState(false);
 
   const supabase = createClient();
@@ -90,6 +91,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             } else if (user.email) {
               setUserName(user.email.split("@")[0]);
             }
+          }
+
+          // Fetch real application count
+          const { count } = await supabase
+            .from("applications")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id);
+
+          if (count !== null) {
+            setAppCount(count);
           }
         }
       } catch {
@@ -226,6 +237,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 : pathname.startsWith(item.href);
 
             const Icon = item.icon;
+            const badgeValue = item.href === "/dashboard/applications" ? `${appCount}/3` : item.badge;
 
             return (
               <Link
@@ -248,7 +260,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 {!collapsed && (
                   <span className="truncate flex-1">{item.title}</span>
                 )}
-                {!collapsed && item.badge && (
+                {!collapsed && badgeValue && (
                   <span
                     className={cn(
                       "ml-auto text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full",
@@ -257,7 +269,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                         : "bg-muted text-muted-foreground"
                     )}
                   >
-                    {item.badge}
+                    {badgeValue}
                   </span>
                 )}
               </Link>

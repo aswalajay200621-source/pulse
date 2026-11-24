@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { getApplications } from "@/app/actions/applications";
+import { ApplicationRecord } from "@/lib/supabase/types";
 import {
   mockApplications,
-  mockSecurityFindings,
-  mockRecentActivity,
   mockLatencyHistory,
   mockUptimeBars,
+  mockRecentActivity,
 } from "@/data/mock-data";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -22,27 +23,34 @@ import {
   ArrowUpRight,
   ExternalLink,
   ShieldCheck,
-  Calendar,
-  AlertTriangle,
   Clock,
   ChevronRight,
   Layers,
+  Plus,
 } from "lucide-react";
 
 export default function DashboardOverviewPage() {
-  const totalApps = mockApplications.length;
-  const onlineApps = mockApplications.filter((a) => a.status === "online").length;
-  const downApps = mockApplications.filter((a) => a.status === "down").length;
-  const degradedApps = mockApplications.filter((a) => a.status === "degraded").length;
+  const [realApps, setRealApps] = React.useState<ApplicationRecord[]>([]);
+  const [loaded, setLoaded] = React.useState(false);
 
-  const totalCriticalSecurity = mockApplications.reduce(
-    (acc, a) => acc + a.securityIssuesCount.critical,
-    0
-  );
-  const totalHighSecurity = mockApplications.reduce(
-    (acc, a) => acc + a.securityIssuesCount.high,
-    0
-  );
+  React.useEffect(() => {
+    async function fetchDashboardData() {
+      const res = await getApplications();
+      if (res.success && res.data) {
+        setRealApps(res.data);
+      }
+      setLoaded(true);
+    }
+    fetchDashboardData();
+  }, []);
+
+  // Use real applications if available, otherwise fallback to demo dataset
+  const hasRealApps = realApps.length > 0;
+  const displayAppCount = hasRealApps ? realApps.length : mockApplications.length;
+  const activeAppsCount = hasRealApps
+    ? realApps.filter((a) => a.monitoring_enabled).length
+    : mockApplications.filter((a) => a.status === "online").length;
+  const pausedOrDownCount = displayAppCount - activeAppsCount;
 
   return (
     <div className="space-y-6">
@@ -53,7 +61,7 @@ export default function DashboardOverviewPage() {
             System Overview
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Real-time status across your 5 monitored applications and security posture.
+            Real-time status across your {displayAppCount} monitored application{displayAppCount !== 1 ? "s" : ""} and security posture.
           </p>
         </div>
 
@@ -61,13 +69,13 @@ export default function DashboardOverviewPage() {
           <Link href="/dashboard/applications">
             <Button size="sm" variant="outline" className="gap-1.5">
               <Layers className="h-3.5 w-3.5" />
-              Manage Apps
+              Manage Apps ({displayAppCount}/3)
             </Button>
           </Link>
-          <Link href="/dashboard/security">
+          <Link href="/dashboard/applications">
             <Button size="sm" className="gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Run Security Audit
+              <Plus className="h-3.5 w-3.5" />
+              Add Application
             </Button>
           </Link>
         </div>
@@ -77,32 +85,32 @@ export default function DashboardOverviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Applications"
-          value={totalApps}
-          subtitle="All active synthetic checks"
+          value={`${displayAppCount} / 3`}
+          subtitle="Account quota utilized"
           icon={<Server className="h-4 w-4" />}
         />
         <StatCard
-          title="Applications Online"
-          value={onlineApps}
-          change="3 healthy"
+          title="Active Monitoring"
+          value={activeAppsCount}
+          change={activeAppsCount > 0 ? "Operational" : "None active"}
           changeType="positive"
-          subtitle={`${degradedApps} degraded service`}
+          subtitle={`${pausedOrDownCount} paused / offline`}
           icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
         />
         <StatCard
-          title="Applications Down"
-          value={downApps}
-          change={downApps > 0 ? "Requires action" : "All clear"}
-          changeType={downApps > 0 ? "negative" : "positive"}
-          subtitle="Outage on Staging API"
-          icon={<AlertOctagon className="h-4 w-4 text-rose-500" />}
+          title="Health Status"
+          value={pausedOrDownCount === 0 ? "100%" : "Attention"}
+          change={pausedOrDownCount > 0 ? `${pausedOrDownCount} Needs Review` : "All Healthy"}
+          changeType={pausedOrDownCount > 0 ? "negative" : "positive"}
+          subtitle="Continuous probe validation"
+          icon={<AlertOctagon className="h-4 w-4 text-amber-500" />}
         />
         <StatCard
           title="Security Issues"
-          value={totalCriticalSecurity + totalHighSecurity}
-          change={`${totalCriticalSecurity} Critical`}
+          value="1"
+          change="1 High Severity"
           changeType="negative"
-          subtitle="Across headers & TLS"
+          subtitle="TLS & header audit scan"
           icon={<ShieldAlert className="h-4 w-4 text-amber-500" />}
         />
       </div>
@@ -116,7 +124,7 @@ export default function DashboardOverviewPage() {
                 Network Latency Benchmark (24 Hours)
               </CardTitle>
               <CardDescription className="text-xs">
-                Average global response time across synthetic probes (84ms current avg)
+                Average global response time across synthetic probes (84ms baseline)
               </CardDescription>
             </div>
             <Link
@@ -138,7 +146,7 @@ export default function DashboardOverviewPage() {
               30-Day Fleet Health & SLA
             </CardTitle>
             <CardDescription className="text-xs">
-              Aggregate availability calculated across 43,200 probes
+              Aggregate availability calculated across global probe cycles
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -149,7 +157,7 @@ export default function DashboardOverviewPage() {
               </div>
               <div className="flex items-baseline justify-between mb-3">
                 <span className="text-xs text-muted-foreground">Current Realized</span>
-                <span className="font-mono text-sm font-bold text-emerald-500">99.94%</span>
+                <span className="font-mono text-sm font-bold text-emerald-500">99.96%</span>
               </div>
               <UptimeBarStrip bars={mockUptimeBars} />
             </div>
@@ -157,12 +165,12 @@ export default function DashboardOverviewPage() {
             <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1">
               <div className="flex items-center justify-between text-xs font-medium text-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" /> MTTR (Mean Time to Recovery)
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" /> MTTR Target
                 </span>
-                <span className="font-mono">8.4 mins</span>
+                <span className="font-mono">&lt; 15 mins</span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Downtime response SLA honored within agreed target bounds.
+                Automated incident alerts dispatched to configured notification channels.
               </p>
             </div>
           </CardContent>
@@ -177,12 +185,12 @@ export default function DashboardOverviewPage() {
               Monitored Applications
             </CardTitle>
             <CardDescription className="text-xs">
-              Status, availability, and vulnerability overview per endpoint
+              Status, endpoint URL, and quick inspection actions
             </CardDescription>
           </div>
           <Link href="/dashboard/applications">
             <Button variant="outline" size="sm" className="text-xs">
-              View All ({mockApplications.length})
+              View All ({displayAppCount})
             </Button>
           </Link>
         </CardHeader>
@@ -193,86 +201,103 @@ export default function DashboardOverviewPage() {
                 <tr>
                   <th className="py-2.5 px-4 font-medium">Application</th>
                   <th className="py-2.5 px-4 font-medium">Status</th>
-                  <th className="py-2.5 px-4 font-medium">Uptime</th>
-                  <th className="py-2.5 px-4 font-medium">Latency</th>
-                  <th className="py-2.5 px-4 font-medium">Security Issues</th>
-                  <th className="py-2.5 px-4 font-medium">Certificate</th>
+                  <th className="py-2.5 px-4 font-medium">Monitoring</th>
+                  <th className="py-2.5 px-4 font-medium">Added</th>
                   <th className="py-2.5 px-4 font-medium text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {mockApplications.map((app) => (
-                  <tr
-                    key={app.id}
-                    className="hover:bg-muted/30 transition-colors group"
-                  >
-                    <td className="py-3 px-4">
-                      <div>
-                        <Link
-                          href={`/dashboard/applications/${app.id}`}
-                          className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
-                        >
-                          {app.name}
-                          <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </Link>
-                        <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                          {app.url}
-                          <a
-                            href={app.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground/60 hover:text-foreground"
-                          >
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={app.status} />
-                    </td>
-                    <td className="py-3 px-4 font-mono font-medium">
-                      {app.uptimePercent}%
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      {app.avgLatencyMs > 0 ? `${app.avgLatencyMs} ms` : "—"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5 text-xs font-mono">
-                        {app.securityIssuesCount.critical > 0 && (
-                          <span className="rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 px-1 py-0.2">
-                            {app.securityIssuesCount.critical} crit
-                          </span>
-                        )}
-                        {app.securityIssuesCount.high > 0 && (
-                          <span className="rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 py-0.2">
-                            {app.securityIssuesCount.high} high
-                          </span>
-                        )}
-                        {app.securityIssuesCount.critical === 0 &&
-                          app.securityIssuesCount.high === 0 && (
-                            <span className="text-muted-foreground">Clean</span>
-                          )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge
-                        status={app.sslCertificate.status}
-                        showIcon={false}
-                      />
-                      <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">
-                        {app.sslCertificate.daysRemaining}d left
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <Link href={`/dashboard/applications/${app.id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                          Inspect
-                        </Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {hasRealApps
+                  ? realApps.map((app) => (
+                      <tr
+                        key={app.id}
+                        className="hover:bg-muted/30 transition-colors group"
+                      >
+                        <td className="py-3 px-4">
+                          <div>
+                            <Link
+                              href={`/dashboard/applications/${app.id}`}
+                              className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
+                            >
+                              {app.name}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+                            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              {app.url}
+                              <a
+                                href={app.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground/60 hover:text-foreground"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={app.monitoring_enabled ? "online" : "maintenance"} />
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs">
+                          {app.monitoring_enabled ? "Active" : "Paused"}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                          {new Date(app.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Link href={`/dashboard/applications/${app.id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                              Inspect
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  : mockApplications.map((app) => (
+                      <tr
+                        key={app.id}
+                        className="hover:bg-muted/30 transition-colors group"
+                      >
+                        <td className="py-3 px-4">
+                          <div>
+                            <Link
+                              href={`/dashboard/applications/${app.id}`}
+                              className="font-medium text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5"
+                            >
+                              {app.name}
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Link>
+                            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              {app.url}
+                              <a
+                                href={app.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground/60 hover:text-foreground"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={app.status} />
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs">
+                          Active (Demo)
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                          Recent
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Link href={`/dashboard/applications/${app.id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                              Inspect
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           </div>
@@ -281,7 +306,6 @@ export default function DashboardOverviewPage() {
 
       {/* Two-column layout: Recent Activity & Upcoming Expiry */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">
@@ -318,7 +342,6 @@ export default function DashboardOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Security Overview & Upcoming Expiries */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">
@@ -352,16 +375,6 @@ export default function DashboardOverviewPage() {
                   </div>
                 </div>
               ))}
-
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-foreground">Domain Registration: acmepay.io</span>
-                <span className="font-mono text-[11px] text-muted-foreground">412 days remaining</span>
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Managed by Cloudflare Registrar with auto-renew enabled.
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
