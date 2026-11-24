@@ -97,7 +97,7 @@ export async function triggerManualScan(applicationId: string): Promise<{ succes
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return { error: "Unauthorized" };
 
-  // Verify ownership
+  // Verify ownership server-side before dispatching scan
   const { data: app } = await supabase
     .from("applications")
     .select("id")
@@ -109,7 +109,16 @@ export async function triggerManualScan(applicationId: string): Promise<{ succes
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) return { error: "Scan service is not configured. CRON_SECRET is missing." };
 
-  const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Determine base URL for internal API call
+  // On Vercel: VERCEL_URL is set. Locally: use localhost.
+  const vercelUrl = process.env.VERCEL_URL;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = appUrl
+    ? appUrl
+    : vercelUrl
+    ? `https://${vercelUrl}`
+    : "http://localhost:3000";
+
   const res = await fetch(`${baseUrl}/api/security/scan`, {
     method: "POST",
     headers: {
@@ -124,7 +133,8 @@ export async function triggerManualScan(applicationId: string): Promise<{ succes
   });
 
   if (!res.ok) {
-    return { error: `Scan service returned HTTP ${res.status}.` };
+    const body = await res.json().catch(() => ({}));
+    return { error: (body as { error?: string }).error || `Scan service returned HTTP ${res.status}.` };
   }
 
   revalidatePath("/dashboard/security");
@@ -140,6 +150,25 @@ export async function updateFindingStatus(
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return { error: "Unauthorized" };
 
+  // Step 1: Verify this finding belongs to an application the user owns (cross-user protection)
+  const { data: finding } = await supabase
+    .from("security_findings")
+    .select("id, application_id")
+    .eq("id", findingId)
+    .maybeSingle();
+
+  if (!finding) return { error: "Finding not found." };
+
+  const { data: app } = await supabase
+    .from("applications")
+    .select("id")
+    .eq("id", finding.application_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!app) return { error: "Access denied." };
+
+  // Step 2: Update the finding status
   const updatePayload: Record<string, unknown> = { status };
   if (status === "resolved") updatePayload.resolved_at = new Date().toISOString();
   if (status === "ignored" && ignoreReason) updatePayload.ignore_reason = ignoreReason;
@@ -147,10 +176,7 @@ export async function updateFindingStatus(
   const { error } = await supabase
     .from("security_findings")
     .update(updatePayload)
-    .eq("id", findingId)
-    .in("application_id",
-      supabase.from("applications").select("id").eq("user_id", user.id) as unknown as string[]
-    );
+    .eq("id", findingId);
 
   if (error) return { error: error.message };
   revalidatePath("/dashboard/security");
