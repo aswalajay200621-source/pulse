@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { GitHubIntegrationPanel } from "@/components/github/github-integration-panel";
 import { User, Bell, Sliders, Shield, Save, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
@@ -133,6 +134,7 @@ export default function SettingsPage() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="notifications">Notifications & Alerts</TabsTrigger>
           <TabsTrigger value="preferences">Account Preferences</TabsTrigger>
+          <TabsTrigger value="github">GitHub App</TabsTrigger>
         </TabsList>
 
         {/* PROFILE TAB */}
@@ -345,6 +347,11 @@ export default function SettingsPage() {
               </CardFooter>
             </Card>
           </form>
+        </TabsContent>
+
+        {/* GITHUB APP INTEGRATION TAB */}
+        <TabsContent value="github">
+          <GitHubIntegrationPanel />
         </TabsContent>
       </Tabs>
     </div>

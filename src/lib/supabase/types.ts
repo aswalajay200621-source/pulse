@@ -74,6 +74,48 @@ export interface NotificationPreferenceRecord {
   updated_at: string;
 }
 
+export interface GithubInstallationRecord {
+  id: string;
+  user_id: string;
+  installation_id: number;
+  account_login: string;
+  account_id: number;
+  account_type: string;
+  account_avatar_url: string | null;
+  target_type: string | null;
+  permissions: Record<string, string> | null;
+  installed_at: string;
+  updated_at: string;
+}
+
+export interface GithubRepositoryRecord {
+  id: string;
+  installation_id: number;
+  user_id: string;
+  repo_id: number;
+  name: string;
+  full_name: string;
+  owner_login: string;
+  default_branch: string;
+  is_private: boolean;
+  html_url: string;
+  application_id: string | null;
+  last_synchronized_at: string;
+  created_at: string;
+}
+
+export interface GithubWebhookEventRecord {
+  id: string;
+  delivery_id: string;
+  event_type: string;
+  action: string | null;
+  installation_id: number | null;
+  payload: Record<string, unknown> | null;
+  processed: boolean;
+  error: string | null;
+  created_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -142,6 +184,32 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<NotificationPreferenceRecord>;
+      };
+      github_installations: {
+        Row: GithubInstallationRecord;
+        Insert: Omit<GithubInstallationRecord, "id" | "installed_at" | "updated_at"> & {
+          id?: string;
+          installed_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<GithubInstallationRecord, "id" | "user_id">>;
+      };
+      github_repositories: {
+        Row: GithubRepositoryRecord;
+        Insert: Omit<GithubRepositoryRecord, "id" | "created_at" | "last_synchronized_at"> & {
+          id?: string;
+          created_at?: string;
+          last_synchronized_at?: string;
+        };
+        Update: Partial<Omit<GithubRepositoryRecord, "id" | "user_id">>;
+      };
+      github_webhook_events: {
+        Row: GithubWebhookEventRecord;
+        Insert: Omit<GithubWebhookEventRecord, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<GithubWebhookEventRecord>;
       };
     };
   };
