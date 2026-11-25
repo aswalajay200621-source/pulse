@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getApplicationById, updateApplication, deleteApplication } from "@/app/actions/applications";
+import { DeepScanTab } from "@/components/security/deep-scan-tab";
 import { ApplicationRecord } from "@/lib/supabase/types";
 import {
   mockApplications,
@@ -46,6 +47,7 @@ export default function ApplicationDetailsPage() {
   const [dbApp, setDbApp] = React.useState<ApplicationRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [probing, setProbing] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<"overview" | "deep-scan">("overview");
 
   React.useEffect(() => {
     async function loadData() {
@@ -185,6 +187,34 @@ export default function ApplicationDetailsPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 print:hidden">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            activeTab === "overview"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab("deep-scan")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            activeTab === "deep-scan"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Deep scan
+        </button>
+      </div>
+
+      {activeTab === "deep-scan" ? (
+        <DeepScanTab applicationId={appId} applicationName={appName} applicationUrl={appUrl} />
+      ) : (
+        <>
       {/* Description Card if available */}
       {appDescription && (
         <Card className="border-border/60 bg-muted/20">
@@ -309,6 +339,8 @@ export default function ApplicationDetailsPage() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
     </div>
   );
 }

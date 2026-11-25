@@ -1,0 +1,9 @@
+{
+  "versions": [
+    { "product": "nginx", "below": "1.25.0", "advisory": "Older Nginx versions may have known HTTP/2 or resolver vulnerabilities." },
+    { "product": "apache", "below": "2.4.58", "advisory": "Older Apache HTTP Server versions have known path traversal and mod_proxy issues." },
+    { "product": "express", "below": "4.19.2", "advisory": "Older Express versions have known open-redirect and query parsing issues." },
+    { "product": "php", "below": "8.2.0", "advisory": "End-of-life or older PHP versions lack active security patches." },
+    { "product": "openssl", "below": "3.0.0", "advisory": "Older OpenSSL versions are end-of-life and lack security updates." }
+  ]
+}
