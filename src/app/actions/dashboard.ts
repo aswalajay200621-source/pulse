@@ -18,6 +18,8 @@ export interface UnifiedAppRow {
   latestResponseTime: number | null;
   openFindingsCount: number;
   criticalFindingsCount: number;
+  openErrorsCount: number;
+  codeHealthState: "good" | "warn" | "bad" | "unknown";
   lastCheckedAt: string | null;
   latestScanAt: string | null;
 }
@@ -81,7 +83,7 @@ export async function getUnifiedDashboardData(): Promise<{
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [checksRes, findingsRes, scansRes, expiryRes, alertsRes] = await Promise.all([
+  const [checksRes, findingsRes, scansRes, expiryRes, alertsRes, errorsRes, repoRes] = await Promise.all([
     supabase
       .from("monitoring_checks")
       .select("*")
@@ -112,6 +114,15 @@ export async function getUnifiedDashboardData(): Promise<{
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("error_groups")
+      .select("id, application_id")
+      .in("application_id", appIds)
+      .eq("status", "open"),
+    supabase
+      .from("repo_status")
+      .select("application_id, last_run_conclusion, last_deploy_state, tests_present")
+      .in("application_id", appIds),
   ]);
 
   const checks = (checksRes.data || []) as MonitoringCheckRecord[];
@@ -127,6 +138,13 @@ export async function getUnifiedDashboardData(): Promise<{
   }>;
   const expiries = (expiryRes.data || []) as ExpiryItemRecord[];
   const recentAlerts = (alertsRes.data || []) as AlertRecord[];
+  const openErrorsList = (errorsRes.data || []) as Array<{ id: string; application_id: string }>;
+  const repoStatusesList = (repoRes.data || []) as Array<{
+    application_id: string;
+    last_run_conclusion: string | null;
+    last_deploy_state: string | null;
+    tests_present: boolean;
+  }>;
 
   let onlineApps = 0;
   let downApps = 0;
@@ -145,6 +163,21 @@ export async function getUnifiedDashboardData(): Promise<{
     const appFindings = openFindingsList.filter((f) => f.application_id === app.id);
     const criticalCount = appFindings.filter((f) => f.severity === "critical").length;
     const latestScan = scansList.find((s) => s.application_id === app.id);
+    const appOpenErrors = openErrorsList.filter((e) => e.application_id === app.id).length;
+    const repoStatus = repoStatusesList.find((r) => r.application_id === app.id);
+
+    let codeHealthState: "good" | "warn" | "bad" | "unknown" = "unknown";
+    if (repoStatus) {
+      const buildBad = ["failure", "cancelled", "timed_out"].includes(repoStatus.last_run_conclusion || "");
+      const deployBad = ["failure", "error"].includes(repoStatus.last_deploy_state || "");
+      if (buildBad || deployBad || appOpenErrors >= 10) codeHealthState = "bad";
+      else if (!repoStatus.tests_present || appOpenErrors > 0) codeHealthState = "warn";
+      else codeHealthState = "good";
+    } else if (appOpenErrors >= 10) {
+      codeHealthState = "bad";
+    } else if (appOpenErrors > 0) {
+      codeHealthState = "warn";
+    }
 
     return {
       id: app.id,
@@ -155,6 +188,8 @@ export async function getUnifiedDashboardData(): Promise<{
       latestResponseTime: latest?.response_time ?? null,
       openFindingsCount: appFindings.length,
       criticalFindingsCount: criticalCount,
+      openErrorsCount: appOpenErrors,
+      codeHealthState,
       lastCheckedAt: latest?.checked_at ?? null,
       latestScanAt: latestScan?.scanned_at ?? null,
     };

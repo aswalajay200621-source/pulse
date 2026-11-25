@@ -55,6 +55,9 @@ export function ErrorReportingTab({ applicationId, applicationUrl }: Props) {
   const [showSnippets, setShowSnippets] = React.useState(false);
   const [copiedKey, setCopiedKey] = React.useState(false);
   const [activeSection, setActiveSection] = React.useState<"errors" | "setup">("errors");
+  const [testKey, setTestKey] = React.useState("");
+  const [testStatus, setTestStatus] = React.useState<"idle" | "sending" | "received" | "error">("idle");
+  const [testMessage, setTestMessage] = React.useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -88,9 +91,57 @@ export function ErrorReportingTab({ applicationId, applicationUrl }: Props) {
     const res = await createIngestKey({ applicationId });
     if (res.success && res.data) {
       setNewKeyData({ rawKey: res.data.rawKey, keyPrefix: res.data.record.key_prefix });
+      setTestKey(res.data.rawKey);
       setKeys((prev) => [res.data!.record, ...prev]);
     }
     setCreating(false);
+  };
+
+  const handleSendTestError = async () => {
+    const keyToUse = (testKey || newKeyData?.rawKey || "").trim();
+    if (!keyToUse) {
+      setTestStatus("error");
+      setTestMessage("Paste your full ingest key first (shown once when created).");
+      return;
+    }
+    setTestStatus("sending");
+    setTestMessage(null);
+    try {
+      const res = await fetch("/api/ingest/error", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-pulse-key": keyToUse,
+        },
+        body: JSON.stringify({
+          name: "PulseTestError",
+          message: "[TEST] Pulse test error — safe to resolve",
+          stack: "Error: [TEST] Pulse test error\n    at sendTestError (pulse-dashboard:1:1)",
+          route: "/pulse-test",
+          isTest: true,
+        }),
+      });
+      if (res.status === 202) {
+        setTestStatus("received");
+        setTestMessage("Received! Test error arrived (no alert email sent).");
+        await loadData();
+      } else if (res.status === 401) {
+        setTestStatus("error");
+        setTestMessage("Wrong or revoked ingest key (401).");
+      } else if (res.status === 403) {
+        setTestStatus("error");
+        setTestMessage("Blocked origin (403) — check allowed origins on this key.");
+      } else if (res.status === 429) {
+        setTestStatus("error");
+        setTestMessage("Rate limited (429) — too many events, try again shortly.");
+      } else {
+        setTestStatus("error");
+        setTestMessage(`Failed with HTTP ${res.status}.`);
+      }
+    } catch {
+      setTestStatus("error");
+      setTestMessage("Network error while sending test event.");
+    }
   };
 
   const handleRevokeKey = async (keyId: string) => {
@@ -367,6 +418,47 @@ async function reportError(err: Error, route?: string) {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Send Test Error */}
+          <Card className="border-border/60">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Send Test Error</CardTitle>
+              <CardDescription className="text-xs">
+                Verify your ingest key works end-to-end. Test events are marked as tests and never trigger alert emails.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="password"
+                  value={testKey}
+                  onChange={(e) => setTestKey(e.target.value)}
+                  placeholder="Paste full ingest key (pk_...)"
+                  className="flex-1 rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendTestError}
+                  disabled={testStatus === "sending"}
+                  className="h-8 text-xs shrink-0"
+                >
+                  {testStatus === "sending" ? "Sending..." : "Send test error"}
+                </Button>
+              </div>
+              {testMessage && (
+                <p
+                  className={`text-xs ${
+                    testStatus === "received"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-500"
+                  }`}
+                >
+                  {testMessage}
+                </p>
               )}
             </CardContent>
           </Card>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogoLink } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ServerAccountHeader } from "@/components/shared/server-account-header";
 import {
   ShieldCheck,
   Activity,
@@ -38,19 +38,7 @@ export default function LandingPage() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <ThemeToggle />
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Log In
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm" className="hidden xs:inline-flex">
-                Get Started
-              </Button>
-            </Link>
-          </div>
+          <ServerAccountHeader />
         </div>
       </header>
 

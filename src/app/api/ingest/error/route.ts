@@ -225,11 +225,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     occurred_at: nowIso,
   });
 
-  // 11. Alert logic (best-effort, never throws)
-  try {
-    await handleAlerts(supabaseAdmin, ingestKey, groupId, isNewGroup, newCount24h, existingGroup);
-  } catch {
-    // Swallow — alert failure must not fail ingest
+  // 11. Alert logic (best-effort, never throws; skipped for test events)
+  const isTestEvent = payload.isTest === true;
+  if (!isTestEvent) {
+    try {
+      await handleAlerts(supabaseAdmin, ingestKey, groupId, isNewGroup, newCount24h, existingGroup);
+    } catch {
+      // Swallow — alert failure must not fail ingest
+    }
   }
 
   // 12. Return 202 immediately with no body details

@@ -209,6 +209,7 @@ export default function DashboardPage() {
                       </button>
                     </th>
                     <th className="py-2.5 px-4 font-medium">Security</th>
+                    <th className="py-2.5 px-4 font-medium">Code Health</th>
                     <th className="py-2.5 px-4 font-medium text-right">Last Checked</th>
                   </tr>
                 </thead>
@@ -242,6 +243,24 @@ export default function DashboardPage() {
                         ) : (
                           <span className="text-emerald-500">0 open</span>
                         )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${
+                              app.codeHealthState === "good"
+                                ? "bg-emerald-500"
+                                : app.codeHealthState === "warn"
+                                ? "bg-yellow-500"
+                                : app.codeHealthState === "bad"
+                                ? "bg-rose-500"
+                                : "bg-muted-foreground/40"
+                            }`}
+                          />
+                          <span className={app.openErrorsCount > 0 ? "text-rose-500" : "text-muted-foreground"}>
+                            {app.openErrorsCount} {app.openErrorsCount === 1 ? "error" : "errors"}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         {app.lastCheckedAt ? new Date(app.lastCheckedAt).toLocaleTimeString() : "Never"}

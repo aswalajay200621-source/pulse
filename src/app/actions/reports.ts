@@ -97,8 +97,12 @@ export async function generateWeeklyReport(): Promise<{
   let newFindings = 0;
   let resolvedFindings = 0;
 
+  let openErrorGroupsCount = 0;
+  let failingBuildsCount = 0;
+  let noTestsCount = 0;
+
   if (appIds.length > 0) {
-    const [checksRes, incidentsRes, findingsRes] = await Promise.all([
+    const [checksRes, incidentsRes, findingsRes, openErrorsRes, repoStatusRes] = await Promise.all([
       supabase
         .from("monitoring_checks")
         .select("*")
@@ -115,6 +119,15 @@ export async function generateWeeklyReport(): Promise<{
         .select("id, status, created_at, resolved_at")
         .in("application_id", appIds)
         .gte("created_at", sevenDaysAgo.toISOString()),
+      supabase
+        .from("error_groups")
+        .select("id", { count: "exact", head: true })
+        .in("application_id", appIds)
+        .eq("status", "open"),
+      supabase
+        .from("repo_status")
+        .select("repository_full_name, last_run_conclusion, last_deploy_state, tests_present")
+        .in("application_id", appIds),
     ]);
 
     const checks = (checksRes.data || []) as MonitoringCheckRecord[];
@@ -129,6 +142,17 @@ export async function generateWeeklyReport(): Promise<{
     const findings = findingsRes.data || [];
     newFindings = findings.length;
     resolvedFindings = findings.filter((f: { status: string }) => f.status === "resolved").length;
+
+    openErrorGroupsCount = openErrorsRes.count ?? 0;
+    const repoStatuses = (repoStatusRes.data || []) as Array<{
+      last_run_conclusion: string | null;
+      last_deploy_state: string | null;
+      tests_present: boolean;
+    }>;
+    failingBuildsCount = repoStatuses.filter(
+      (r) => r.last_run_conclusion === "failure" || r.last_deploy_state === "failure" || r.last_deploy_state === "error"
+    ).length;
+    noTestsCount = repoStatuses.filter((r) => !r.tests_present).length;
   }
 
   const { count: upcomingExpiriesCount } = await supabase
@@ -146,6 +170,15 @@ export async function generateWeeklyReport(): Promise<{
   }
   if ((upcomingExpiriesCount ?? 0) > 0) {
     recommendedActions.push("Renew expiring SSL certificates, domains, or tracked credentials.");
+  }
+  if (openErrorGroupsCount > 0) {
+    recommendedActions.push(`Investigate ${openErrorGroupsCount} open error group(s) reported by your applications.`);
+  }
+  if (failingBuildsCount > 0) {
+    recommendedActions.push(`Fix ${failingBuildsCount} failing GitHub build or deployment pipeline(s).`);
+  }
+  if (noTestsCount > 0) {
+    recommendedActions.push(`Add automated tests to ${noTestsCount} repository/repositories where no tests were detected.`);
   }
   if (recommendedActions.length === 0) {
     recommendedActions.push("All monitored systems look healthy. Continue regular weekly reviews.");

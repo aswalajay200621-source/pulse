@@ -45,27 +45,28 @@ export default function PrivacyPage() {
                 2. Information We Collect
               </h2>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Account details:</strong> Name, work email address, and billing authentication tokens.</li>
+                <li><strong>Account details:</strong> Name, work email address, and authentication tokens.</li>
                 <li><strong>Monitored targets:</strong> Hostnames, URL endpoints, and probe configuration frequencies.</li>
                 <li><strong>Diagnostic telemetry:</strong> HTTP status codes, latency timings, TLS handshake attributes, and public security headers returned by your servers.</li>
+                <li><strong>Error reports (optional):</strong> When you install the Pulse error reporting snippet, we store the error message, the route path (with query strings and fragments removed), a short scrubbed stack excerpt, browser family name (e.g. Chrome), optional release version, and timestamp.</li>
               </ul>
             </div>
 
             <div>
               <h2 className="text-base font-semibold text-foreground mb-2">
-                3. We Do Not Inspect Application Payloads
+                3. Secret &amp; Personal Data Scrubbing
               </h2>
               <p>
-                Pulse probes are designed for synthetic reachability and security header compliance. We do not store, scrape, or resell internal database data, customer transaction records, or proprietary request payloads.
+                Pulse probes are designed for synthetic reachability and security header compliance. For error reports, emails, JWTs, bearer tokens, API keys, and credit-card-like numbers are automatically scrubbed and replaced with <span className="font-mono text-foreground">[REDACTED]</span> before storage. We never store IP addresses, cookies, request bodies, headers, or user IDs from error reports. You can revoke or rotate your ingest key at any time from your application settings.
               </p>
             </div>
 
             <div>
               <h2 className="text-base font-semibold text-foreground mb-2">
-                4. Data Retention & Deletion
+                4. Data Retention &amp; Deletion
               </h2>
               <p>
-                High-frequency probe results are retained for 90 days for SLA chart rendering before automated roll-up into daily aggregates. You can request complete account and metric purging at any time through Settings.
+                High-frequency probe results are retained for 90 days before automated roll-up. Individual error events are automatically deleted after 30 days. You can request complete account and metric purging at any time through Settings.
               </p>
             </div>
 
@@ -74,7 +75,7 @@ export default function PrivacyPage() {
                 5. Contact Information
               </h2>
               <p>
-                For privacy compliance inquiries or data subject access requests, reach our Data Protection Officer at <span className="font-mono text-foreground">privacy@pulsehealth.io</span>.
+                For privacy compliance inquiries or data subject access requests, reach <span className="font-mono text-foreground">[COMPANY_NAME]</span> at <span className="font-mono text-foreground">[CONTACT_EMAIL]</span>.
               </p>
             </div>
           </section>

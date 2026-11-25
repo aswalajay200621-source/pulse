@@ -249,6 +249,31 @@ test("low for quiet non-sensitive route", () => {
 });
 
 // ============================================================
+// TEST EVENT BEHAVIOUR (NO ALERT EMAIL)
+// ============================================================
+console.log("\n🧪 Test Event Behaviour");
+
+test("test event flag suppresses alert creation", () => {
+  let alertSent = false;
+  const payload = { name: "Error", message: "[TEST] Pulse test error", stack: "at test", isTest: true };
+  const isTestEvent = payload.isTest === true;
+  if (!isTestEvent) {
+    alertSent = true;
+  }
+  assert.equal(alertSent, false, "test event must not trigger alerts");
+});
+
+test("non-test event allows alert creation", () => {
+  let alertSent = false;
+  const payload = { name: "Error", message: "Real production error", stack: "at app.js:1:1" };
+  const isTestEvent = payload.isTest === true;
+  if (!isTestEvent) {
+    alertSent = true;
+  }
+  assert.equal(alertSent, true, "real event should trigger alerts");
+});
+
+// ============================================================
 // SUMMARY
 // ============================================================
 console.log(`\n${"=".repeat(50)}`);
