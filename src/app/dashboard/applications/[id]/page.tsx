@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getApplicationById, updateApplication, deleteApplication } from "@/app/actions/applications";
 import { DeepScanTab } from "@/components/security/deep-scan-tab";
+import { ErrorReportingTab } from "@/components/code-health/error-reporting-tab";
+import { HealthCheckTab } from "@/components/code-health/health-check-tab";
+import { CodeHealthCard } from "@/components/code-health/code-health-card";
 import { ApplicationRecord } from "@/lib/supabase/types";
 import {
   mockApplications,
-  mockAlerts,
-  mockSecurityFindings,
   mockLatencyHistory,
   mockUptimeBars,
 } from "@/data/mock-data";
@@ -22,12 +23,9 @@ import {
   ArrowLeft,
   ExternalLink,
   ShieldCheck,
-  Clock,
   RefreshCw,
   Power,
   Trash2,
-  Calendar,
-  Layers,
 } from "lucide-react";
 
 function GithubIcon({ className }: { className?: string }) {
@@ -39,6 +37,15 @@ function GithubIcon({ className }: { className?: string }) {
   );
 }
 
+type TabId = "overview" | "deep-scan" | "errors" | "health-check";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "deep-scan", label: "Deep Scan" },
+  { id: "errors", label: "Errors" },
+  { id: "health-check", label: "Health Check" },
+];
+
 export default function ApplicationDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -47,38 +54,31 @@ export default function ApplicationDetailsPage() {
   const [dbApp, setDbApp] = React.useState<ApplicationRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [probing, setProbing] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<"overview" | "deep-scan">("overview");
+  const [activeTab, setActiveTab] = React.useState<TabId>("overview");
 
   React.useEffect(() => {
     async function loadData() {
       if (!appId) return;
       setLoading(true);
-
       const res = await getApplicationById(appId);
-      if (res.success && res.data) {
-        setDbApp(res.data);
-      }
+      if (res.success && res.data) setDbApp(res.data);
       setLoading(false);
     }
-
     loadData();
   }, [appId]);
 
-  // Fallback to sample app if viewing a demo ID
   const sampleApp = mockApplications.find((a) => a.id === appId) || mockApplications[0];
 
   const appName = dbApp ? dbApp.name : sampleApp.name;
   const appUrl = dbApp ? dbApp.url : sampleApp.url;
-  const appDescription = dbApp ? dbApp.description : "Production payment gateway and webhook receiver service.";
-  const appGithub = dbApp ? dbApp.github_repository_url : "https://github.com/acme/pay-gateway";
+  const appDescription = dbApp ? dbApp.description : "Production payment gateway.";
+  const appGithub = dbApp ? dbApp.github_repository_url : null;
   const appCreated = dbApp ? new Date(dbApp.created_at).toLocaleDateString() : "Nov 12, 2026";
   const isMonitoringEnabled = dbApp ? dbApp.monitoring_enabled : true;
 
   const triggerManualProbe = () => {
     setProbing(true);
-    setTimeout(() => {
-      setProbing(false);
-    }, 800);
+    setTimeout(() => setProbing(false), 800);
   };
 
   const handleToggleMonitoring = async () => {
@@ -98,7 +98,7 @@ export default function ApplicationDetailsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back button and title */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <Link
@@ -108,27 +108,18 @@ export default function ApplicationDetailsPage() {
             <ArrowLeft className="h-3.5 w-3.5" /> Back to My Applications
           </Link>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {appName}
-            </h1>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-mono font-medium border ${
-                isMonitoringEnabled
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}
-            >
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{appName}</h1>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-mono font-medium border ${
+              isMonitoringEnabled
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                : "bg-muted text-muted-foreground border-border"
+            }`}>
               {isMonitoringEnabled ? "Active Monitoring" : "Paused"}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground font-mono">
             <span>{appUrl}</span>
-            <a
-              href={appUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground inline-flex items-center"
-            >
+            <a href={appUrl} target="_blank" rel="noopener noreferrer" className="hover:text-foreground inline-flex items-center">
               <ExternalLink className="h-3 w-3" />
             </a>
             <span>•</span>
@@ -136,12 +127,7 @@ export default function ApplicationDetailsPage() {
             {appGithub && (
               <>
                 <span>•</span>
-                <a
-                  href={appGithub}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-foreground hover:underline"
-                >
+                <a href={appGithub} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-foreground hover:underline">
                   <GithubIcon className="h-3 w-3" /> GitHub Repo
                 </a>
               </>
@@ -151,195 +137,142 @@ export default function ApplicationDetailsPage() {
 
         <div className="flex items-center gap-2">
           {dbApp && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleToggleMonitoring}
-              className="gap-1.5"
-            >
+            <Button size="sm" variant="outline" onClick={handleToggleMonitoring} className="gap-1.5">
               <Power className="h-3.5 w-3.5" />
               {isMonitoringEnabled ? "Pause" : "Resume"}
             </Button>
           )}
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={triggerManualProbe}
-            disabled={probing}
-            className="gap-1.5"
-          >
+          <Button size="sm" variant="outline" onClick={triggerManualProbe} disabled={probing} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${probing ? "animate-spin" : ""}`} />
             {probing ? "Checking..." : "Probe Now"}
           </Button>
-
           {dbApp && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleDelete}
-              className="gap-1.5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
+            <Button size="sm" variant="destructive" onClick={handleDelete} className="gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" /> Delete
             </Button>
           )}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 print:hidden">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-            activeTab === "overview"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveTab("deep-scan")}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-            activeTab === "deep-scan"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Deep scan
-        </button>
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 print:hidden flex-wrap">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              activeTab === tab.id
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {activeTab === "deep-scan" ? (
+      {/* Tab content */}
+      {activeTab === "deep-scan" && (
         <DeepScanTab applicationId={appId} applicationName={appName} applicationUrl={appUrl} />
-      ) : (
-        <>
-      {/* Description Card if available */}
-      {appDescription && (
-        <Card className="border-border/60 bg-muted/20">
-          <CardContent className="p-4 text-xs sm:text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">Service Purpose: </span>
-            {appDescription}
-          </CardContent>
-        </Card>
       )}
 
-      {/* Top Application Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Availability (30-day)"
-          value="99.98%"
-          change="SLA Compliant"
-          changeType="positive"
-          subtitle="60s synthetic check interval"
-        />
-        <StatCard
-          title="Average Response Time"
-          value="84 ms"
-          change="p95: 110ms"
-          changeType="positive"
-          subtitle="Direct edge probe telemetry"
-        />
-        <StatCard
-          title="Health Score"
-          value="98/100"
-          change="Excellent"
-          changeType="positive"
-          subtitle="Composite uptime & security"
-        />
-        <StatCard
-          title="TLS Handshake"
-          value="Valid"
-          subtitle="Let's Encrypt Authority X3"
-          change="72 days left"
-          changeType="positive"
-        />
-      </div>
+      {activeTab === "errors" && (
+        <ErrorReportingTab applicationId={appId} applicationUrl={appUrl} />
+      )}
 
-      {/* Latency & Response-Time Chart */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div>
-            <CardTitle className="text-sm font-semibold">
-              Response-Time Visualization
-            </CardTitle>
-            <CardDescription className="text-xs">
-              24-hour synthetic probe response durations in milliseconds
-            </CardDescription>
+      {activeTab === "health-check" && (
+        <HealthCheckTab
+          applicationId={appId}
+          applicationUrl={appUrl}
+          initialPath={dbApp?.health_check_path ?? null}
+          initialEnabled={dbApp?.health_check_enabled ?? false}
+        />
+      )}
+
+      {activeTab === "overview" && (
+        <div className="space-y-6">
+          {appDescription && (
+            <Card className="border-border/60 bg-muted/20">
+              <CardContent className="p-4 text-xs sm:text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">Service Purpose: </span>
+                {appDescription}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Code Health Card */}
+          {dbApp && (
+            <CodeHealthCard applicationId={appId} hasGithubRepo={!!dbApp.github_repository_url} />
+          )}
+
+          {/* Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Availability (30-day)" value="99.98%" change="SLA Compliant" changeType="positive" subtitle="60s synthetic check interval" />
+            <StatCard title="Average Response Time" value="84 ms" change="p95: 110ms" changeType="positive" subtitle="Direct edge probe telemetry" />
+            <StatCard title="Health Score" value="98/100" change="Excellent" changeType="positive" subtitle="Composite uptime &amp; security" />
+            <StatCard title="TLS Handshake" value="Valid" subtitle="Let&apos;s Encrypt Authority X3" change="72 days left" changeType="positive" />
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            Target SLA: &lt; 250ms
-          </span>
-        </CardHeader>
-        <CardContent>
-          <LatencyAreaChart data={mockLatencyHistory} height={200} />
-        </CardContent>
-      </Card>
 
-      {/* Uptime Overview */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            30-Day Historical Availability
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Hourly availability segments over the past month
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <UptimeBarStrip bars={mockUptimeBars} />
-        </CardContent>
-      </Card>
-
-      {/* Two columns: Security summary & Recent alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Security Summary & Header Posture
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Automated TLS validation and HTTP header configurations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border border-border/60 bg-card p-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground">
-                  X-Content-Type-Options Header Absent
-                </span>
-                <StatusBadge status="medium" />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-sm font-semibold">Response-Time Visualization</CardTitle>
+                <CardDescription className="text-xs">24-hour synthetic probe response durations in milliseconds</CardDescription>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Browsers might MIME-sniff response types away from declared content-type, creating subtle security risks.
-              </p>
-              <div className="rounded bg-muted/40 p-2 text-[11px] text-muted-foreground">
-                <span className="font-semibold text-foreground">Recommendation: </span>
-                Set 'X-Content-Type-Options: nosniff' header on all HTTP responses.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <span className="font-mono text-xs text-muted-foreground">Target SLA: &lt; 250ms</span>
+            </CardHeader>
+            <CardContent>
+              <LatencyAreaChart data={mockLatencyHistory} height={200} />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">
-              Recent Application Alerts
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Incident triggers logged during check routines
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground">
-              <ShieldCheck className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
-              All clear. No active downtime incidents or unhandled alerts for this endpoint.
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-        </>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">30-Day Historical Availability</CardTitle>
+              <CardDescription className="text-xs">Hourly availability segments over the past month</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UptimeBarStrip bars={mockUptimeBars} />
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Security Summary &amp; Header Posture</CardTitle>
+                <CardDescription className="text-xs">Automated TLS validation and HTTP header configurations</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border border-border/60 bg-card p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground">X-Content-Type-Options Header Absent</span>
+                    <StatusBadge status="medium" />
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Browsers might MIME-sniff response types away from declared content-type, creating subtle security risks.
+                  </p>
+                  <div className="rounded bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                    <span className="font-semibold text-foreground">Recommendation: </span>
+                    Set X-Content-Type-Options: nosniff on all HTTP responses.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold">Recent Application Alerts</CardTitle>
+                <CardDescription className="text-xs">Incident triggers logged during check routines</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                  <ShieldCheck className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
+                  All clear. No active downtime incidents or unhandled alerts for this endpoint.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );

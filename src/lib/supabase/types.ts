@@ -14,6 +14,8 @@ export interface ApplicationRecord {
   description: string | null;
   github_repository_url: string | null;
   monitoring_enabled: boolean;
+  health_check_path: string | null;
+  health_check_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

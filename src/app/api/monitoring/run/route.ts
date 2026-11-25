@@ -5,6 +5,7 @@ import {
   safeFetchWithSsrfProtection,
   recordCheckAndEvaluateHealth,
 } from "@/lib/monitoring/engine";
+import { runHealthCheck, recordHealthCheckResult } from "@/lib/monitoring/health-check";
 import type { ApplicationRecord } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +97,15 @@ export async function POST(request: NextRequest) {
         batch.map(async (app) => {
           const checkResult = await safeFetchWithSsrfProtection(app.url);
           await recordCheckAndEvaluateHealth(supabaseAdmin, app, checkResult, job.id);
+
+          // Feature 2: Health check endpoint (best-effort, never throws)
+          if (app.health_check_enabled && app.health_check_path) {
+            try {
+              const hcResult = await runHealthCheck(app.url, app.health_check_path);
+              await recordHealthCheckResult(supabaseAdmin, app.id, app.user_id, app.name, hcResult, app.health_check_path);
+            } catch { /* swallow — must not break uptime monitoring */ }
+          }
+
           return checkResult;
         })
       );
