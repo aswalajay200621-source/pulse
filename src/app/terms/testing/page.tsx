@@ -10,13 +10,13 @@ export default function TestingTermsPage() {
 
       <h1 className="text-2xl font-bold tracking-tight">Safe Harbor & Human Security Testing Terms</h1>
       <p className="text-xs text-muted-foreground">
-        [PLACEHOLDER: Legal counsel must review this document before production launch. Company: [COMPANY_NAME], Contact: [LEGAL_CONTACT_EMAIL]]
+        [PLACEHOLDER: Legal counsel must review this document before production launch. Company: PULSE, Contact: [LEGAL_CONTACT_EMAIL]]
       </p>
 
       <div className="space-y-4 text-sm text-muted-foreground leading-relaxed border border-border/70 rounded-lg p-5 bg-card">
         <h2 className="text-base font-semibold text-foreground">1. Safe Harbor Authorization</h2>
         <p>
-          When an Application Owner opens a Test Request on [COMPANY_NAME] (&ldquo;Pulse&rdquo;) and accepts
+          When an Application Owner opens a Test Request on PULSE (&ldquo;Pulse&rdquo;) and accepts
           these Safe Harbor terms, the Owner authorizes invited Testers to perform good-faith,
           non-destructive security testing strictly within the defined in-scope URLs and rules.
         </p>

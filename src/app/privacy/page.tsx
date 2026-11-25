@@ -75,7 +75,7 @@ export default function PrivacyPage() {
                 5. Contact Information
               </h2>
               <p>
-                For privacy compliance inquiries or data subject access requests, reach <span className="font-mono text-foreground">[COMPANY_NAME]</span> at <span className="font-mono text-foreground">[CONTACT_EMAIL]</span>.
+                For privacy compliance inquiries or data subject access requests, reach <span className="font-mono text-foreground">PULSE</span> at <span className="font-mono text-foreground">[CONTACT_EMAIL]</span>.
               </p>
             </div>
           </section>
