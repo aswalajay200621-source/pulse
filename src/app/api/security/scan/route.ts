@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scanRepository } from "@/lib/security/repo-scanner";
 import { checkSecurityHeaders } from "@/lib/security/header-checker";
+import { sendEmail, buildAlertEmail } from "@/lib/email";
 import type { ApplicationRecord, GithubRepositoryRecord } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -275,6 +276,44 @@ export async function POST(request: NextRequest) {
           title: `Security scan found ${findingsCount} issues in ${app.name}`,
           description: `${criticalCount} critical, ${highCount} high, ${mediumCount} medium, ${lowCount} low severity findings.`,
         });
+
+        // Send alert email to the app owner
+        try {
+          const { data: ownerProfile } = await supabase
+            .from("profiles")
+            .select("email")
+            .eq("id", app.user_id)
+            .maybeSingle();
+
+          const ownerEmail = ownerProfile?.email ?? (await supabase.auth.admin.getUserById(app.user_id)).data.user?.email;
+
+          if (ownerEmail) {
+            const findings: string[] = [];
+            if (criticalCount > 0) findings.push(`${criticalCount} critical severity finding${criticalCount > 1 ? "s" : ""}`);
+            if (highCount > 0) findings.push(`${highCount} high severity finding${highCount > 1 ? "s" : ""}`);
+            if (mediumCount > 0) findings.push(`${mediumCount} medium severity finding${mediumCount > 1 ? "s" : ""}`);
+            if (lowCount > 0) findings.push(`${lowCount} low severity finding${lowCount > 1 ? "s" : ""}`);
+
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://pulse-woad-nine.vercel.app";
+            const { htmlContent, textContent } = buildAlertEmail({
+              appName: app.name,
+              appUrl: app.url,
+              severity: criticalCount > 0 ? "critical" : "high",
+              findings,
+              dashboardUrl: `${baseUrl}/dashboard/applications/${app.id}`,
+            });
+
+            await sendEmail({
+              to: [{ email: ownerEmail }],
+              subject: `🚨 Pulse Alert: ${criticalCount + highCount} critical/high findings in ${app.name}`,
+              htmlContent,
+              textContent,
+            });
+          }
+        } catch (emailErr) {
+          // Non-fatal — log but don't fail the scan
+          console.error("[Scan] Failed to send alert email:", emailErr);
+        }
       }
 
       results.push({ appId: app.id, scanId: scan.id, status: "completed" });
