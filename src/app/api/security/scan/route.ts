@@ -47,8 +47,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: apps, error: appsError } = await appsQuery;
-  if (appsError || !apps?.length) {
-    return NextResponse.json({ error: appsError?.message || "No applications found" }, { status: 500 });
+  if (appsError) {
+    return NextResponse.json({ error: appsError.message }, { status: 500 });
+  }
+  if (!apps?.length) {
+    return NextResponse.json({ ok: true, scanned: 0, message: "No applications to scan" });
   }
 
   const results: Array<{ appId: string; scanId: string; status: string }> = [];
