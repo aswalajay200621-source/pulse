@@ -109,7 +109,7 @@ export async function POST(request: Request) {
   const { data: checks, error } = await admin
     .from("flow_checks")
     .select(
-      "id, user_id, application_id, login_url, content_type, email_field, password_field, test_email, encrypted_password, iv, auth_tag, expected_status, expected_text, last_run_at, consecutive_failures, applications!inner(url, domain_verified_at)"
+      "id, user_id, application_id, login_url, content_type, email_field, password_field, test_email, encrypted_password, iv, auth_tag, expected_status, expected_text, last_run_at, consecutive_failures, applications!inner(url)"
     )
     .eq("enabled", true)
     .not("encrypted_password", "is", null)
@@ -125,9 +125,8 @@ export async function POST(request: Request) {
   for (const check of checks || []) {
     const appData = check.applications as unknown as {
       url: string;
-      domain_verified_at: string | null;
     };
-    if (!appData?.domain_verified_at) continue;
+    if (!appData?.url) continue;
 
     let password: string;
     try {
