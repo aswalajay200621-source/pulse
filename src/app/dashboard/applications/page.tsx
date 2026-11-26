@@ -23,6 +23,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { BulkImportDialog } from "@/components/dashboard/bulk-import-dialog";
 import {
   Plus,
   Search,
@@ -35,6 +36,7 @@ import {
   Trash2,
   Power,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 
 function GithubIcon({ className }: { className?: string }) {
@@ -57,6 +59,7 @@ export default function MyApplicationsPage() {
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [showImportModal, setShowImportModal] = React.useState(false);
   const [selectedApp, setSelectedApp] = React.useState<ApplicationRecord | null>(null);
 
   // Form states
@@ -242,6 +245,17 @@ export default function MyApplicationsPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImportModal(true)}
+            disabled={quotaReached}
+            className="gap-1.5"
+            title={quotaReached ? "Maximum limit of 3 applications reached" : "Bulk import URLs"}
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
           <Button
             size="sm"
             onClick={handleOpenAdd}
@@ -610,6 +624,13 @@ export default function MyApplicationsPage() {
           </Button>
         </DialogFooter>
       </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={fetchApps}
+      />
     </div>
   );
 }

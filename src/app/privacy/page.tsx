@@ -48,6 +48,7 @@ export default function PrivacyPage() {
                 <li><strong>Account details:</strong> Name, work email address, and authentication tokens.</li>
                 <li><strong>Monitored targets:</strong> Hostnames, URL endpoints, and probe configuration frequencies.</li>
                 <li><strong>Diagnostic telemetry:</strong> HTTP status codes, latency timings, TLS handshake attributes, and public security headers returned by your servers.</li>
+                <li><strong>Public status pages (opt-in):</strong> If you choose to enable a public status page for an application, we store a randomly generated unguessable slug and your chosen display title. Only uptime history, incident durations, and overall status are exposed publicly — no internal URLs, error details, security findings, or account data are ever shown. You can disable or rotate the slug at any time from your application settings.</li>
                 <li><strong>Error reports (optional):</strong> When you install the Pulse error reporting snippet, we store the error message, the route path (with query strings and fragments removed), a short scrubbed stack excerpt, browser family name (e.g. Chrome), optional release version, and timestamp.</li>
               </ul>
             </div>
@@ -66,7 +67,7 @@ export default function PrivacyPage() {
                 4. Data Retention &amp; Deletion
               </h2>
               <p>
-                High-frequency probe results are retained for 90 days before automated roll-up. Individual error events are automatically deleted after 30 days. You can request complete account and metric purging at any time through Settings.
+                High-frequency probe results are retained for 90 days before automated roll-up. Individual error events are automatically deleted after 30 days. Daily health score snapshots per application are retained for 90 days and then automatically deleted. You can request complete account and metric purging at any time through Settings.
               </p>
             </div>
 

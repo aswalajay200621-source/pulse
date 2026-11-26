@@ -8,6 +8,8 @@ import { DeepScanTab } from "@/components/security/deep-scan-tab";
 import { ErrorReportingTab } from "@/components/code-health/error-reporting-tab";
 import { HealthCheckTab } from "@/components/code-health/health-check-tab";
 import { CodeHealthCard } from "@/components/code-health/code-health-card";
+import { HealthScoreCard } from "@/components/code-health/health-score-card";
+import { StatusPageTab } from "@/components/code-health/status-page-tab";
 import { ApplicationRecord } from "@/lib/supabase/types";
 import {
   mockApplications,
@@ -37,13 +39,14 @@ function GithubIcon({ className }: { className?: string }) {
   );
 }
 
-type TabId = "overview" | "deep-scan" | "errors" | "health-check";
+type TabId = "overview" | "deep-scan" | "errors" | "health-check" | "status-page";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "deep-scan", label: "Deep Scan" },
   { id: "errors", label: "Errors" },
   { id: "health-check", label: "Health Check" },
+  { id: "status-page", label: "Status Page" },
 ];
 
 export default function ApplicationDetailsPage() {
@@ -189,6 +192,10 @@ export default function ApplicationDetailsPage() {
         />
       )}
 
+      {activeTab === "status-page" && (
+        <StatusPageTab applicationId={appId} applicationName={appName} />
+      )}
+
       {activeTab === "overview" && (
         <div className="space-y-6">
           {appDescription && (
@@ -199,6 +206,9 @@ export default function ApplicationDetailsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Health Score Card */}
+          {dbApp && <HealthScoreCard applicationId={appId} />}
 
           {/* Code Health Card */}
           {dbApp && (

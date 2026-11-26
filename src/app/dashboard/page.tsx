@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/dashboard";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { FirstRunChecklist } from "@/components/dashboard/first-run-checklist";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,9 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* First-run setup checklist */}
+      {!loading && <FirstRunChecklist />}
+
       {/* Real KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -210,6 +214,7 @@ export default function DashboardPage() {
                     </th>
                     <th className="py-2.5 px-4 font-medium">Security</th>
                     <th className="py-2.5 px-4 font-medium">Code Health</th>
+                    <th className="py-2.5 px-4 font-medium">Score</th>
                     <th className="py-2.5 px-4 font-medium text-right">Last Checked</th>
                   </tr>
                 </thead>
@@ -261,6 +266,19 @@ export default function DashboardPage() {
                             {app.openErrorsCount} {app.openErrorsCount === 1 ? "error" : "errors"}
                           </span>
                         </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            app.healthBand === "green"
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              : app.healthBand === "yellow"
+                              ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                          }`}
+                        >
+                          {app.healthScore}/100
+                        </span>
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         {app.lastCheckedAt ? new Date(app.lastCheckedAt).toLocaleTimeString() : "Never"}

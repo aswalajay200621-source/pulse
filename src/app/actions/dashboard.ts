@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { calculateMonitoringStats } from "@/lib/monitoring/stats";
+import { computeHealthScore, type HealthBand } from "@/lib/health-score";
 import type {
   AlertRecord,
   ApplicationRecord,
@@ -20,6 +21,8 @@ export interface UnifiedAppRow {
   criticalFindingsCount: number;
   openErrorsCount: number;
   codeHealthState: "good" | "warn" | "bad" | "unknown";
+  healthScore: number;
+  healthBand: HealthBand;
   lastCheckedAt: string | null;
   latestScanAt: string | null;
 }
@@ -179,6 +182,20 @@ export async function getUnifiedDashboardData(): Promise<{
       codeHealthState = "warn";
     }
 
+    const hs = computeHealthScore({
+      applicationId: app.id,
+      isDownNow: latest ? status === "down" : null,
+      uptime7d: stats.uptimePercentage,
+      openCriticalFindings: criticalCount,
+      openHighFindings: appFindings.filter((f) => f.severity === "high").length,
+      openMediumFindings: appFindings.filter((f) => f.severity === "medium").length,
+      openNewOrGrowingErrors: appOpenErrors,
+      latestBuildFailing: repoStatus
+        ? ["failure", "cancelled", "timed_out"].includes(repoStatus.last_run_conclusion || "")
+        : null,
+      testsPresent: repoStatus ? repoStatus.tests_present : null,
+    });
+
     return {
       id: app.id,
       name: app.name,
@@ -190,6 +207,8 @@ export async function getUnifiedDashboardData(): Promise<{
       criticalFindingsCount: criticalCount,
       openErrorsCount: appOpenErrors,
       codeHealthState,
+      healthScore: hs.score,
+      healthBand: hs.band,
       lastCheckedAt: latest?.checked_at ?? null,
       latestScanAt: latestScan?.scanned_at ?? null,
     };
