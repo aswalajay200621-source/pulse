@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { computeProtectionLevels } from "@/lib/protection-levels";
 import { createClient } from "@/lib/supabase/server";
 import { calculateMonitoringStats } from "@/lib/monitoring/stats";
 import type { MonitoringCheckRecord } from "@/lib/supabase/types";
@@ -180,6 +181,37 @@ export async function generateWeeklyReport(): Promise<{
   if (noTestsCount > 0) {
     recommendedActions.push(`Add automated tests to ${noTestsCount} repository/repositories where no tests were detected.`);
   }
+
+  for (const app of (apps || []) as Array<{
+    id: string;
+    name: string;
+    url: string;
+    domain_verified_at?: string | null;
+    health_check_enabled?: boolean;
+    health_check_path?: string | null;
+    github_repository_url?: string | null;
+  }>) {
+    const prot = computeProtectionLevels({
+      hasUrl: Boolean(app.url),
+      domainVerifiedAt: app.domain_verified_at ?? null,
+      healthCheckEnabled: Boolean(app.health_check_enabled),
+      healthCheckPath: app.health_check_path ?? null,
+      hasGithubRepo: Boolean(app.github_repository_url),
+    });
+    const nextStep = prot.levels.find(
+      (l) => l.status === "not_connected" && l.level !== 6
+    );
+    if (nextStep) {
+      recommendedActions.push(
+        `${app.name}: Protection level ${prot.connectedCount} of 6 — Next best step: Level ${nextStep.level} (${nextStep.title}).`
+      );
+    } else {
+      recommendedActions.push(
+        `${app.name}: Protection level ${prot.connectedCount} of 6.`
+      );
+    }
+  }
+
   if (recommendedActions.length === 0) {
     recommendedActions.push("All monitored systems look healthy. Continue regular weekly reviews.");
   }

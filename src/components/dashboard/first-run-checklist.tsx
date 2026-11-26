@@ -68,6 +68,20 @@ export function FirstRunChecklist() {
           <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
         </div>
 
+        {state.hasApps && state.firstAppId && (
+          <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+            <span className="text-muted-foreground">
+              Want Pulse to catch more?{" "}
+              <Link
+                href={`/dashboard/apps/${state.firstAppId}/protection`}
+                className="font-medium text-foreground underline underline-offset-2 hover:opacity-80"
+              >
+                See your protection levels
+              </Link>
+            </span>
+          </div>
+        )}
+
         {!state.hasApps ? (
           <div className="rounded-lg border border-border/60 bg-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>

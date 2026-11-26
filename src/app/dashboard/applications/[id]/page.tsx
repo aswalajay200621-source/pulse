@@ -10,6 +10,7 @@ import { HealthCheckTab } from "@/components/code-health/health-check-tab";
 import { CodeHealthCard } from "@/components/code-health/code-health-card";
 import { HealthScoreCard } from "@/components/code-health/health-score-card";
 import { StatusPageTab } from "@/components/code-health/status-page-tab";
+import { ProtectionLevelsView } from "@/components/code-health/protection-levels-view";
 import { ApplicationRecord } from "@/lib/supabase/types";
 import {
   mockApplications,
@@ -39,10 +40,11 @@ function GithubIcon({ className }: { className?: string }) {
   );
 }
 
-type TabId = "overview" | "deep-scan" | "errors" | "health-check" | "status-page";
+type TabId = "overview" | "deep-scan" | "errors" | "health-check" | "status-page" | "protection";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "protection", label: "Protection" },
   { id: "deep-scan", label: "Deep Scan" },
   { id: "errors", label: "Errors" },
   { id: "health-check", label: "Health Check" },
@@ -283,6 +285,10 @@ export default function ApplicationDetailsPage() {
             </Card>
           </div>
         </div>
+      )}
+
+      {activeTab === "protection" && (
+        <ProtectionLevelsView applicationId={appId} />
       )}
     </div>
   );

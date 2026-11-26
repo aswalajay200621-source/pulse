@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { calculateMonitoringStats } from "@/lib/monitoring/stats";
 import { computeHealthScore, type HealthBand } from "@/lib/health-score";
+import { computeProtectionLevels } from "@/lib/protection-levels";
 import type {
   AlertRecord,
   ApplicationRecord,
@@ -23,6 +24,7 @@ export interface UnifiedAppRow {
   codeHealthState: "good" | "warn" | "bad" | "unknown";
   healthScore: number;
   healthBand: HealthBand;
+  protectionLevel: number;
   lastCheckedAt: string | null;
   latestScanAt: string | null;
 }
@@ -196,6 +198,19 @@ export async function getUnifiedDashboardData(): Promise<{
       testsPresent: repoStatus ? repoStatus.tests_present : null,
     });
 
+    const protection = computeProtectionLevels({
+      hasUrl: Boolean(app.url),
+      domainVerifiedAt: (app as { domain_verified_at?: string | null }).domain_verified_at ?? null,
+      healthCheckEnabled: Boolean((app as { health_check_enabled?: boolean }).health_check_enabled),
+      healthCheckPath: (app as { health_check_path?: string | null }).health_check_path ?? null,
+      hasActiveIngestKey: appOpenErrors > 0,
+      lastErrorEventAt: appOpenErrors > 0 ? new Date().toISOString() : null,
+      hasGithubRepo: Boolean(app.github_repository_url) || Boolean(repoStatus),
+      githubLastBuildFailed: repoStatus
+        ? ["failure", "cancelled", "timed_out"].includes(repoStatus.last_run_conclusion || "")
+        : false,
+    });
+
     return {
       id: app.id,
       name: app.name,
@@ -209,6 +224,7 @@ export async function getUnifiedDashboardData(): Promise<{
       codeHealthState,
       healthScore: hs.score,
       healthBand: hs.band,
+      protectionLevel: protection.connectedCount,
       lastCheckedAt: latest?.checked_at ?? null,
       latestScanAt: latestScan?.scanned_at ?? null,
     };

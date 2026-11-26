@@ -215,6 +215,7 @@ export default function DashboardPage() {
                     <th className="py-2.5 px-4 font-medium">Security</th>
                     <th className="py-2.5 px-4 font-medium">Code Health</th>
                     <th className="py-2.5 px-4 font-medium">Score</th>
+                    <th className="py-2.5 px-4 font-medium">Protection</th>
                     <th className="py-2.5 px-4 font-medium text-right">Last Checked</th>
                   </tr>
                 </thead>
@@ -279,6 +280,14 @@ export default function DashboardPage() {
                         >
                           {app.healthScore}/100
                         </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Link
+                          href={`/dashboard/apps/${app.id}/protection`}
+                          className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted/80 transition-colors"
+                        >
+                          {app.protectionLevel}/6
+                        </Link>
                       </td>
                       <td className="py-3 px-4 text-right text-muted-foreground">
                         {app.lastCheckedAt ? new Date(app.lastCheckedAt).toLocaleTimeString() : "Never"}
