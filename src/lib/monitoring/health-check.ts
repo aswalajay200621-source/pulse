@@ -102,7 +102,7 @@ export async function runHealthCheck(
         status: "unhealthy",
         statusCode: response.status,
         responseExcerpt,
-        errorMessage: "Health check not set up correctly",
+        errorMessage: "Your backend or database isn't responding (health route returned 404 or HTML)",
       };
     }
 
@@ -110,7 +110,7 @@ export async function runHealthCheck(
       try {
         const json = JSON.parse(bodyText);
         if (json.status === "error" || json.ok === false || json.database === "unreachable") {
-          return { status: "unhealthy", statusCode: response.status, responseExcerpt, errorMessage: "Database not reachable" };
+          return { status: "unhealthy", statusCode: response.status, responseExcerpt, errorMessage: "Your backend or database isn't responding" };
         }
       } catch {
         // Non-JSON 2xx (e.g. "ok") is fine
@@ -122,7 +122,7 @@ export async function runHealthCheck(
       status: "unhealthy",
       statusCode: response.status,
       responseExcerpt,
-      errorMessage: response.status === 503 ? "Database not reachable" : `Server error (${response.status})`,
+      errorMessage: "Your backend or database isn't responding",
     };
   } catch (err: unknown) {
     clearTimeout(timer);
