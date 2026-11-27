@@ -218,34 +218,34 @@ export default function ApplicationDetailsPage() {
           )}
 
           {/* Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-base">
             <StatCard
-              title="Monitoring"
+              title="Site Checks"
               value={dbApp?.monitoring_enabled ? "Active" : "Paused"}
-              change={dbApp?.monitoring_enabled ? "Automated checks on" : "Checks paused"}
+              change={dbApp?.monitoring_enabled ? "Checking automatically" : "Checks paused"}
               changeType={dbApp?.monitoring_enabled ? "positive" : "neutral"}
-              subtitle="Cron-triggered HTTP probes"
+              subtitle="Checks if your site is online"
             />
             <StatCard
-              title="Health Check"
+              title="Deep Health Check"
               value={dbApp?.health_check_enabled ? "Enabled" : "Not Set"}
               change={dbApp?.health_check_path || "/api/health"}
               changeType={dbApp?.health_check_enabled ? "positive" : "neutral"}
-              subtitle="Endpoint health probe"
+              subtitle="Checks if your database & backend work"
             />
             <StatCard
-              title="GitHub Repo"
+              title="Code & Secrets"
               value={dbApp?.github_repository_url ? "Connected" : "Not Linked"}
-              change={dbApp?.github_repository_url ? "Repo scans enabled" : "Link in settings"}
+              change={dbApp?.github_repository_url ? "Scanning code" : "Link in settings"}
               changeType={dbApp?.github_repository_url ? "positive" : "neutral"}
-              subtitle="Code & secret scanning"
+              subtitle="Finds leaked passwords & bugs"
             />
             <StatCard
               title="Added"
               value={dbApp?.created_at ? new Date(dbApp.created_at).toLocaleDateString() : "—"}
               change="Tracked in Pulse"
               changeType="neutral"
-              subtitle="Application created"
+              subtitle="Date added"
             />
           </div>
 
