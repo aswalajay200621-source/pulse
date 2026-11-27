@@ -15,6 +15,7 @@ export interface SafeCheckResult {
   responseTimeMs: number | null;
   isSlow: boolean;
   errorMessage: string | null;
+  responseSnippet?: string | null;
 }
 
 /**
@@ -158,6 +159,7 @@ export async function safeFetchWithSsrfProtection(
         };
       }
 
+      const failureBody = await response.text().catch(() => "");
       return {
         ok: false,
         status: "down",
@@ -165,6 +167,7 @@ export async function safeFetchWithSsrfProtection(
         responseTimeMs: elapsed,
         isSlow,
         errorMessage: formatPlainFailureReason(response.status),
+        responseSnippet: failureBody ? failureBody.slice(0, 400) : null,
       };
     } catch (err: unknown) {
       clearTimeout(timer);
@@ -237,6 +240,7 @@ export async function recordCheckAndEvaluateHealth(
     response_time: result.responseTimeMs,
     is_slow: result.isSlow,
     error_message: result.errorMessage,
+    response_snippet: result.responseSnippet ?? null,
     job_id: jobId ?? null,
   });
 
