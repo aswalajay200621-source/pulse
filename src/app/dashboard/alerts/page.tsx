@@ -1,60 +1,69 @@
 "use client";
 
 import * as React from "react";
-import { mockAlerts, IncidentAlert } from "@/data/mock-data";
+import { getAlerts, markAlertRead, markAllAlertsRead } from "@/app/actions/alerts";
+import type { AlertRecord } from "@/lib/supabase/types";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, CheckCircle2, Filter, AlertOctagon, RefreshCw } from "lucide-react";
+import { Bell, CheckCircle2, RefreshCw } from "lucide-react";
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = React.useState<IncidentAlert[]>(mockAlerts);
-  const [filter, setFilter] = React.useState<"all" | "unread" | "resolved">("all");
+  const [alerts, setAlerts] = React.useState<AlertRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState<"all" | "unread">("all");
 
-  const unreadCount = alerts.filter((a) => !a.read).length;
+  const loadAlerts = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await getAlerts();
+    if (res.error) setError(res.error);
+    else setAlerts(res.alerts || []);
+    setLoading(false);
+  }, []);
 
-  const markAllRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
+  React.useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  const unreadCount = alerts.filter((a) => !a.is_read).length;
+
+  const handleMarkAllRead = async () => {
+    setAlerts((prev) => prev.map((a) => ({ ...a, is_read: true })));
+    await markAllAlertsRead();
   };
 
-  const toggleRead = (id: string) => {
+  const handleToggleRead = async (id: string, currentRead: boolean) => {
+    const nextRead = !currentRead;
     setAlerts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, read: !a.read } : a))
+      prev.map((a) => (a.id === id ? { ...a, is_read: nextRead } : a))
     );
-  };
-
-  const toggleResolved = (id: string) => {
-    setAlerts((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, resolved: !a.resolved, read: true } : a
-      )
-    );
+    await markAlertRead(id, nextRead);
   };
 
   const filteredAlerts = alerts.filter((a) => {
-    if (filter === "unread") return !a.read;
-    if (filter === "resolved") return a.resolved;
+    if (filter === "unread") return !a.is_read;
     return true;
   });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-5">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Incident Alerts & Notifications
+              Alerts & Notifications
             </h1>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2 py-0.5 text-xs font-mono font-semibold">
+              <span className="rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-0.5 text-xs font-mono font-semibold">
                 {unreadCount} Unread
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Downtime warnings, latency alerts, and TLS expiry escalations.
+          <p className="text-sm text-muted-foreground mt-1">
+            Real problems found on your apps — downtime, slow loading, or security issues.
           </p>
         </div>
 
@@ -62,7 +71,17 @@ export default function AlertsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={markAllRead}
+            onClick={loadAlerts}
+            disabled={loading}
+            className="text-xs gap-1.5"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMarkAllRead}
             disabled={unreadCount === 0}
             className="text-xs"
           >
@@ -71,7 +90,6 @@ export default function AlertsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-border/50 pb-2">
         <button
           onClick={() => setFilter("all")}
@@ -93,85 +111,78 @@ export default function AlertsPage() {
         >
           Unread ({unreadCount})
         </button>
-        <button
-          onClick={() => setFilter("resolved")}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            filter === "resolved"
-              ? "bg-muted text-foreground font-semibold"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Resolved ({alerts.filter((a) => a.resolved).length})
-        </button>
       </div>
 
-      {/* Alert List */}
-      {filteredAlerts.length === 0 ? (
+      {error && (
+        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-400">
+          Could not load alerts: {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-3 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-xl border border-border bg-card/50" />
+          ))}
+        </div>
+      ) : filteredAlerts.length === 0 ? (
         <EmptyState
-          icon={<CheckCircle2 className="h-6 w-6 text-emerald-500" />}
-          title="No alerts in this view"
-          description="Everything is running smoothly or all incidents in this category have been addressed."
+          icon={<Bell className="h-5 w-5" />}
+          title="No alerts yet"
+          description="Your apps look good. When Pulse finds a problem, it will show up here."
         />
       ) : (
         <div className="space-y-3">
           {filteredAlerts.map((alert) => (
             <Card
               key={alert.id}
-              className={`transition-all ${
-                !alert.read
-                  ? "border-l-4 border-l-rose-500 bg-card shadow-sm"
-                  : "border-border/60 bg-card/60 opacity-80"
+              className={`transition-colors ${
+                !alert.is_read ? "border-rose-500/40 bg-card" : "border-border bg-card/60"
               }`}
             >
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StatusBadge status={alert.severity} />
-                      <span className="font-semibold text-sm text-foreground">
-                        {alert.title}
+              <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <StatusBadge
+                      status={
+                        alert.severity === "critical"
+                          ? "critical"
+                          : alert.severity === "high"
+                            ? "high"
+                            : alert.severity === "medium"
+                              ? "medium"
+                              : "low"
+                      }
+                    />
+                    <h2 className="text-sm font-semibold text-foreground">
+                      {alert.title}
+                    </h2>
+                    {!alert.is_read && (
+                      <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-400">
+                        NEW
                       </span>
-                      {!alert.read && (
-                        <span className="rounded bg-rose-500/10 text-rose-500 text-[10px] font-mono px-1.5 py-0.2">
-                          NEW
-                        </span>
-                      )}
-                      {alert.resolved && (
-                        <span className="rounded bg-emerald-500/10 text-emerald-500 text-[10px] font-mono px-1.5 py-0.2">
-                          RESOLVED
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                      {alert.message}
+                    )}
+                  </div>
+                  {alert.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {alert.description}
                     </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(alert.created_at).toLocaleString()}
+                  </p>
+                </div>
 
-                    <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground pt-1">
-                      <span>Application: <strong className="font-sans text-foreground">{alert.appName}</strong></span>
-                      <span>•</span>
-                      <span>{alert.timestamp}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleRead(alert.id)}
-                      className="text-xs h-8"
-                    >
-                      {alert.read ? "Mark Unread" : "Mark Read"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleResolved(alert.id)}
-                      className="text-xs h-8"
-                    >
-                      {alert.resolved ? "Reopen" : "Resolve Incident"}
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleRead(alert.id, alert.is_read)}
+                    className="text-xs gap-1.5"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {alert.is_read ? "Mark Unread" : "Mark Read"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>

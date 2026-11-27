@@ -29,7 +29,6 @@ import {
   Sliders,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { mockAlerts, mockApplications } from "@/data/mock-data";
 
 interface NavItem {
   title: string;
@@ -159,12 +158,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return { href, label };
   });
 
-  const filteredApps = searchQuery
-    ? mockApplications.filter((a) =>
-        a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.url.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : mockApplications;
+  const filteredApps: Array<{ id: string; name: string; url: string; status?: string; uptimePercent?: number }> = [];
 
   const initials = userName
     ? userName
@@ -376,7 +370,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                     </Link>
                   </div>
                   <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                    {mockAlerts.slice(0, 3).map((a) => (
+                    {[].map((a: { id: string; title: string; timestamp: string; appName?: string }) => (
                       <Link
                         key={a.id}
                         href="/dashboard/alerts"

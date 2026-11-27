@@ -12,14 +12,8 @@ import { HealthScoreCard } from "@/components/code-health/health-score-card";
 import { StatusPageTab } from "@/components/code-health/status-page-tab";
 import { ProtectionLevelsView } from "@/components/code-health/protection-levels-view";
 import { ApplicationRecord } from "@/lib/supabase/types";
-import {
-  mockApplications,
-  mockLatencyHistory,
-  mockUptimeBars,
-} from "@/data/mock-data";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
-import { LatencyAreaChart, UptimeBarStrip } from "@/components/shared/simple-charts";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,14 +66,12 @@ export default function ApplicationDetailsPage() {
     loadData();
   }, [appId]);
 
-  const sampleApp = mockApplications.find((a) => a.id === appId) || mockApplications[0];
-
-  const appName = dbApp ? dbApp.name : sampleApp.name;
-  const appUrl = dbApp ? dbApp.url : sampleApp.url;
-  const appDescription = dbApp ? dbApp.description : "Production payment gateway.";
-  const appGithub = dbApp ? dbApp.github_repository_url : null;
-  const appCreated = dbApp ? new Date(dbApp.created_at).toLocaleDateString() : "Nov 12, 2026";
-  const isMonitoringEnabled = dbApp ? dbApp.monitoring_enabled : true;
+  const appName = dbApp?.name ?? (loading ? "Loading..." : "Application");
+  const appUrl = dbApp?.url ?? "";
+  const appDescription = dbApp?.description ?? "";
+  const appGithub = dbApp?.github_repository_url ?? null;
+  const appCreated = dbApp ? new Date(dbApp.created_at).toLocaleDateString() : "—";
+  const isMonitoringEnabled = dbApp ? dbApp.monitoring_enabled : false;
 
   const triggerManualProbe = () => {
     setProbing(true);
