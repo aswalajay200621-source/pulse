@@ -141,8 +141,8 @@ export async function getUnifiedDashboardData(): Promise<{
     application_id: string;
     scanned_at: string;
   }>;
-  const expiries = (expiryRes.data || []) as ExpiryItemRecord[];
-  const recentAlerts = (alertsRes.data || []) as AlertRecord[];
+  const expiries = (expiryRes.data || []) as unknown as ExpiryItemRecord[];
+  const recentAlerts = (alertsRes.data || []) as unknown as AlertRecord[];
   const openErrorsList = (errorsRes.data || []) as Array<{ id: string; application_id: string }>;
   const repoStatusesList = (repoRes.data || []) as Array<{
     application_id: string;
