@@ -447,7 +447,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {/* Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {children}
+          <div key={pathname} className="animate-page-enter">
+            {children}
+          </div>
         </main>
       </div>
 

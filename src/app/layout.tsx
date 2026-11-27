@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SplashScreen } from "@/components/shared/splash-screen";
+import { TopProgressBar } from "@/components/shared/top-progress-bar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +32,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <TopProgressBar />
+          <SplashScreen />
           {children}
         </ThemeProvider>
       </body>
