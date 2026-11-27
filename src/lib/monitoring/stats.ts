@@ -102,3 +102,37 @@ export function calculateMonitoringStats(
     latestCheck: filtered[0] ?? null,
   };
 }
+
+/**
+ * Calculates how much of the monthly downtime budget has been used.
+ * Example: 99.9% goal allows 0.1% downtime (~43.2 minutes per 30 days).
+ */
+export function calculateUptimeGoalStatus(
+  actualUptimePct: number | null,
+  goalPct: number = 99.9
+): {
+  budgetUsedPct: number | null;
+  summary: string;
+} {
+  if (actualUptimePct === null) {
+    return { budgetUsedPct: null, summary: "Waiting for enough checks to measure your goal." };
+  }
+  const allowedDowntimePct = Math.max(0.001, 100 - goalPct);
+  const actualDowntimePct = Math.max(0, 100 - actualUptimePct);
+  const budgetUsedPct = Math.min(100, Math.round((actualDowntimePct / allowedDowntimePct) * 100));
+
+  return {
+    budgetUsedPct,
+    summary: `You have used ${budgetUsedPct}% of your allowed downtime for your ${goalPct}% goal.`,
+  };
+}
+
+/**
+ * Computes the slowest 5% response time from real measured checks.
+ */
+export function calculateSlowest5Percent(responseTimesMs: number[]): number | null {
+  if (!responseTimesMs.length) return null;
+  const sorted = [...responseTimesMs].sort((a, b) => a - b);
+  const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95));
+  return sorted[idx];
+}
