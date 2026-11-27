@@ -220,25 +220,18 @@ export default function ApplicationDetailsPage() {
           {/* Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              title="Current Status"
-              value={dbApp?.current_status ? dbApp.current_status.toUpperCase() : "UNKNOWN"}
-              change={dbApp?.monitoring_enabled ? "Monitoring active" : "Monitoring paused"}
-              changeType={dbApp?.current_status === "up" ? "positive" : dbApp?.current_status === "down" ? "negative" : "neutral"}
-              subtitle={dbApp?.last_checked_at ? `Last checked ${new Date(dbApp.last_checked_at).toLocaleString()}` : "Not checked yet"}
-            />
-            <StatCard
-              title="Last Response Time"
-              value={dbApp?.last_response_time_ms != null ? `${dbApp.last_response_time_ms} ms` : "—"}
-              change={dbApp?.last_response_time_ms != null ? (dbApp.last_response_time_ms < 500 ? "Fast" : "Slow") : "No probe data"}
-              changeType={dbApp?.last_response_time_ms != null ? (dbApp.last_response_time_ms < 500 ? "positive" : "negative") : "neutral"}
-              subtitle="Latest HTTP probe"
-            />
-            <StatCard
-              title="Monitoring Interval"
+              title="Monitoring"
               value={dbApp?.monitoring_enabled ? "Active" : "Paused"}
-              change="Automated checks"
+              change={dbApp?.monitoring_enabled ? "Automated checks on" : "Checks paused"}
               changeType={dbApp?.monitoring_enabled ? "positive" : "neutral"}
-              subtitle="Cron-triggered probes"
+              subtitle="Cron-triggered HTTP probes"
+            />
+            <StatCard
+              title="Health Check"
+              value={dbApp?.health_check_enabled ? "Enabled" : "Not Set"}
+              change={dbApp?.health_check_path || "/api/health"}
+              changeType={dbApp?.health_check_enabled ? "positive" : "neutral"}
+              subtitle="Endpoint health probe"
             />
             <StatCard
               title="GitHub Repo"
@@ -246,6 +239,13 @@ export default function ApplicationDetailsPage() {
               change={dbApp?.github_repository_url ? "Repo scans enabled" : "Link in settings"}
               changeType={dbApp?.github_repository_url ? "positive" : "neutral"}
               subtitle="Code & secret scanning"
+            />
+            <StatCard
+              title="Added"
+              value={dbApp?.created_at ? new Date(dbApp.created_at).toLocaleDateString() : "—"}
+              change="Tracked in Pulse"
+              changeType="neutral"
+              subtitle="Application created"
             />
           </div>
 
