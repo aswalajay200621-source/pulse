@@ -206,6 +206,17 @@ app.get('/api/health', async (req, res) => {
             <p className="text-xs font-semibold mb-1 text-foreground">Express</p>
             <pre className="text-[10px] font-mono bg-muted/50 rounded p-3 overflow-x-auto whitespace-pre-wrap">{expressSnippet}</pre>
           </div>
+          <div>
+            <p className="text-xs font-semibold mb-1 text-foreground">Python (FastAPI / Flask)</p>
+            <pre className="text-[10px] font-mono bg-muted/50 rounded p-3 overflow-x-auto whitespace-pre-wrap">{`@app.get("/api/health")
+def health_check():
+    try:
+        # Run a quick query with a 5-second timeout
+        db.execute("SELECT 1", timeout=5)
+        return {"status": "ok", "database": "ok"}, 200
+    except Exception:
+        return {"status": "error", "database": "unreachable"}, 503`}</pre>
+          </div>
         </CardContent>
       </Card>
     </div>
