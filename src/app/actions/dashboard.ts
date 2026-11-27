@@ -91,11 +91,11 @@ export async function getUnifiedDashboardData(): Promise<{
   const [checksRes, findingsRes, scansRes, expiryRes, alertsRes, errorsRes, repoRes] = await Promise.all([
     supabase
       .from("monitoring_checks")
-      .select("*")
+      .select("id, application_id, status, response_time, checked_at")
       .in("application_id", appIds)
       .gte("checked_at", sevenDaysAgo)
       .order("checked_at", { ascending: false })
-      .limit(500),
+      .limit(300),
     supabase
       .from("security_findings")
       .select("id, application_id, severity, status")
@@ -109,13 +109,13 @@ export async function getUnifiedDashboardData(): Promise<{
       .limit(20),
     supabase
       .from("expiry_items")
-      .select("*")
+      .select("id, application_id, category, days_remaining, status, domain_or_host")
       .eq("user_id", user.id)
       .order("days_remaining", { ascending: true, nullsFirst: false })
       .limit(20),
     supabase
       .from("alerts")
-      .select("*")
+      .select("id, application_id, severity, title, description, is_read, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10),

@@ -11,6 +11,14 @@ export interface HealthSnapshotPoint {
   score: number;
 }
 
+type CachedHealthScore = {
+  data: HealthScoreResult & { snapshots: HealthSnapshotPoint[] };
+  expiresAt: number;
+};
+
+const healthScoreCache = new Map<string, CachedHealthScore>();
+const HEALTH_SCORE_TTL_MS = 45_000;
+
 export async function getApplicationHealthScore(applicationId: string): Promise<{
   data?: HealthScoreResult & { snapshots: HealthSnapshotPoint[] };
   error?: string;
@@ -25,6 +33,12 @@ export async function getApplicationHealthScore(applicationId: string): Promise<
     error: authError,
   } = await supabase.auth.getUser();
   if (authError || !user) return { error: "Unauthorized" };
+
+  const cacheKey = `${user.id}:${applicationId}`;
+  const cached = healthScoreCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { data: cached.data };
+  }
 
   const { data: app } = await supabase
     .from("applications")
@@ -41,11 +55,11 @@ export async function getApplicationHealthScore(applicationId: string): Promise<
     await Promise.all([
       supabase
         .from("monitoring_checks")
-        .select("*")
+        .select("id, application_id, status, response_time, checked_at")
         .eq("application_id", applicationId)
         .gte("checked_at", sevenDaysAgo)
         .order("checked_at", { ascending: false })
-        .limit(200),
+        .limit(150),
       supabase
         .from("security_findings")
         .select("severity")
@@ -111,10 +125,14 @@ export async function getApplicationHealthScore(applicationId: string): Promise<
     healthCheckFailing: hcRes.data ? hcRes.data.status !== "healthy" : null,
   });
 
-  return {
-    data: {
-      ...result,
-      snapshots: (snapshotsRes.data || []) as HealthSnapshotPoint[],
-    },
+  const payload = {
+    ...result,
+    snapshots: (snapshotsRes.data || []) as HealthSnapshotPoint[],
   };
+  healthScoreCache.set(cacheKey, {
+    data: payload,
+    expiresAt: Date.now() + HEALTH_SCORE_TTL_MS,
+  });
+
+  return { data: payload };
 }
