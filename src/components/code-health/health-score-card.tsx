@@ -91,7 +91,7 @@ export function HealthScoreCard({ applicationId }: Props) {
         {data.topFixes.length === 0 ? (
           <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>No active deductions. Everything configured is healthy!</span>
+            <span>No active problems found in the checks that have run.</span>
           </div>
         ) : (
           <div className="space-y-2">

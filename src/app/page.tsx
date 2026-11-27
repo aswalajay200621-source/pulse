@@ -97,27 +97,27 @@ export default function LandingPage() {
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      5 Services Active
+                      Live Monitoring Preview
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                   <div className="rounded-md border border-border/60 bg-card/70 p-3">
-                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Global Uptime</p>
-                    <p className="text-xl font-bold font-mono text-foreground mt-1">99.96%</p>
+                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Uptime</p>
+                    <p className="text-xl font-bold font-mono text-foreground mt-1">Real checks</p>
                   </div>
                   <div className="rounded-md border border-border/60 bg-card/70 p-3">
-                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Avg Latency</p>
-                    <p className="text-xl font-bold font-mono text-foreground mt-1">84 ms</p>
+                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Response Speed</p>
+                    <p className="text-xl font-bold font-mono text-foreground mt-1">Measured</p>
                   </div>
                   <div className="rounded-md border border-border/60 bg-card/70 p-3">
-                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Security Grade</p>
-                    <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">A+</p>
+                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Security</p>
+                    <p className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">Scanned</p>
                   </div>
                   <div className="rounded-md border border-border/60 bg-card/70 p-3">
-                    <p className="text-[11px] text-muted-foreground uppercase font-mono">Cert Status</p>
-                    <p className="text-xl font-bold font-mono text-foreground mt-1">Secure</p>
+                    <p className="text-[11px] text-muted-foreground uppercase font-mono">SSL Cert</p>
+                    <p className="text-xl font-bold font-mono text-foreground mt-1">Tracked</p>
                   </div>
                 </div>
 
@@ -192,9 +192,9 @@ export default function LandingPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/80 bg-muted/50 text-foreground mb-4">
                   <Clock className="h-5 w-5" />
                 </div>
-                <h3 className="text-base font-semibold text-foreground">Latency & SLA Benchmarks</h3>
+                <h3 className="text-base font-semibold text-foreground">Speed &amp; Uptime Tracking</h3>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  Track p50, p95, and p99 response times over hours, days, or months to spot degradation before it causes cascading failures.
+                  Track how fast your site responds over hours, days, or months to spot slowdowns before users notice.
                 </p>
               </div>
 

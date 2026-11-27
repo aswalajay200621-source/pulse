@@ -206,7 +206,14 @@ export function computeHealthScore(input: HealthScoreInput): HealthScoreResult {
   }
 
   const totalDeduction = deductions.reduce((sum, d) => sum + d.pointsRecovered, 0);
-  const score = Math.max(0, Math.min(100, HEALTH_SCORE_CONFIG.baseScore - totalDeduction));
+  let score = Math.max(0, Math.min(100, HEALTH_SCORE_CONFIG.baseScore - totalDeduction));
+
+  // Never show 100/100 unless both website check AND backend/database health check have run and passed
+  const bothCoreChecksPassed = input.isDownNow === false && input.healthCheckFailing === false;
+  if (!bothCoreChecksPassed && score === 100) {
+    score = 99;
+  }
+
   const topFixes = [...deductions]
     .sort((a, b) => b.pointsRecovered - a.pointsRecovered)
     .slice(0, 3);
