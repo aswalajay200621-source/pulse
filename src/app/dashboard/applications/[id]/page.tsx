@@ -219,34 +219,35 @@ export default function ApplicationDetailsPage() {
 
           {/* Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Availability (30-day)" value="99.98%" change="SLA Compliant" changeType="positive" subtitle="60s synthetic check interval" />
-            <StatCard title="Average Response Time" value="84 ms" change="p95: 110ms" changeType="positive" subtitle="Direct edge probe telemetry" />
-            <StatCard title="Health Score" value="98/100" change="Excellent" changeType="positive" subtitle="Composite uptime &amp; security" />
-            <StatCard title="TLS Handshake" value="Valid" subtitle="Let&apos;s Encrypt Authority X3" change="72 days left" changeType="positive" />
+            <StatCard
+              title="Current Status"
+              value={dbApp?.current_status ? dbApp.current_status.toUpperCase() : "UNKNOWN"}
+              change={dbApp?.monitoring_enabled ? "Monitoring active" : "Monitoring paused"}
+              changeType={dbApp?.current_status === "up" ? "positive" : dbApp?.current_status === "down" ? "negative" : "neutral"}
+              subtitle={dbApp?.last_checked_at ? `Last checked ${new Date(dbApp.last_checked_at).toLocaleString()}` : "Not checked yet"}
+            />
+            <StatCard
+              title="Last Response Time"
+              value={dbApp?.last_response_time_ms != null ? `${dbApp.last_response_time_ms} ms` : "—"}
+              change={dbApp?.last_response_time_ms != null ? (dbApp.last_response_time_ms < 500 ? "Fast" : "Slow") : "No probe data"}
+              changeType={dbApp?.last_response_time_ms != null ? (dbApp.last_response_time_ms < 500 ? "positive" : "negative") : "neutral"}
+              subtitle="Latest HTTP probe"
+            />
+            <StatCard
+              title="Monitoring Interval"
+              value={dbApp?.monitoring_enabled ? "Active" : "Paused"}
+              change="Automated checks"
+              changeType={dbApp?.monitoring_enabled ? "positive" : "neutral"}
+              subtitle="Cron-triggered probes"
+            />
+            <StatCard
+              title="GitHub Repo"
+              value={dbApp?.github_repository_url ? "Connected" : "Not Linked"}
+              change={dbApp?.github_repository_url ? "Repo scans enabled" : "Link in settings"}
+              changeType={dbApp?.github_repository_url ? "positive" : "neutral"}
+              subtitle="Code & secret scanning"
+            />
           </div>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-sm font-semibold">Response-Time Visualization</CardTitle>
-                <CardDescription className="text-xs">24-hour synthetic probe response durations in milliseconds</CardDescription>
-              </div>
-              <span className="font-mono text-xs text-muted-foreground">Target SLA: &lt; 250ms</span>
-            </CardHeader>
-            <CardContent>
-              <LatencyAreaChart data={mockLatencyHistory} height={200} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">30-Day Historical Availability</CardTitle>
-              <CardDescription className="text-xs">Hourly availability segments over the past month</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <UptimeBarStrip bars={mockUptimeBars} />
-            </CardContent>
-          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
