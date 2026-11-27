@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getApplicationById, updateApplication, deleteApplication } from "@/app/actions/applications";
+import { probeApplicationNow } from "@/app/actions/monitoring";
 import { DeepScanTab } from "@/components/security/deep-scan-tab";
 import { ErrorReportingTab } from "@/components/code-health/error-reporting-tab";
 import { HealthCheckTab } from "@/components/code-health/health-check-tab";
@@ -53,6 +54,12 @@ export default function ApplicationDetailsPage() {
   const [dbApp, setDbApp] = React.useState<ApplicationRecord | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [probing, setProbing] = React.useState(false);
+  const [probeResult, setProbeResult] = React.useState<{
+    ok: boolean;
+    status: string;
+    responseTimeMs: number | null;
+    errorMessage: string | null;
+  } | null>(null);
   const [activeTab, setActiveTab] = React.useState<TabId>("overview");
 
   React.useEffect(() => {
@@ -73,9 +80,15 @@ export default function ApplicationDetailsPage() {
   const appCreated = dbApp ? new Date(dbApp.created_at).toLocaleDateString() : "—";
   const isMonitoringEnabled = dbApp ? dbApp.monitoring_enabled : false;
 
-  const triggerManualProbe = () => {
+  const triggerManualProbe = async () => {
+    if (!appId) return;
     setProbing(true);
-    setTimeout(() => setProbing(false), 800);
+    setProbeResult(null);
+    const res = await probeApplicationNow(appId);
+    setProbing(false);
+    if (res.success && res.result) {
+      setProbeResult(res.result);
+    }
   };
 
   const handleToggleMonitoring = async () => {

@@ -96,3 +96,52 @@ export async function getMonitoringDashboardData(
     },
   };
 }
+
+export async function probeApplicationNow(applicationId: string): Promise<{
+  success: boolean;
+  error?: string;
+  result?: {
+    ok: boolean;
+    status: string;
+    responseTimeMs: number | null;
+    errorMessage: string | null;
+  };
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const { data: app, error: appError } = await supabase
+    .from("applications")
+    .select("*")
+    .eq("id", applicationId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (appError || !app) {
+    return { success: false, error: "Application not found" };
+  }
+
+  const { safeFetchWithSsrfProtection, recordCheckAndEvaluateHealth } = await import("@/lib/monitoring/engine");
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+
+  const checkResult = await safeFetchWithSsrfProtection(app.url);
+  const admin = createAdminClient();
+  await recordCheckAndEvaluateHealth(admin, app as ApplicationRecord, checkResult, undefined, "website");
+
+  return {
+    success: true,
+    result: {
+      ok: checkResult.ok,
+      status: checkResult.status,
+      responseTimeMs: checkResult.responseTimeMs,
+      errorMessage: checkResult.errorMessage,
+    },
+  };
+}

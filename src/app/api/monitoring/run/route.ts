@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  safeFetchWithSsrfProtection,
+  checkWithRetry,
   recordCheckAndEvaluateHealth,
 } from "@/lib/monitoring/engine";
 import { runHealthCheck, recordHealthCheckResult } from "@/lib/monitoring/health-check";
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
       const batch = enabledApps.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (app) => {
-          const checkResult = await safeFetchWithSsrfProtection(app.url);
-          await recordCheckAndEvaluateHealth(supabaseAdmin, app, checkResult, job.id);
+          const { result: checkResult } = await checkWithRetry(app.url, undefined, 30000);
+          await recordCheckAndEvaluateHealth(supabaseAdmin, app, checkResult, job.id, "website");
 
           // Feature 2: Health check endpoint (best-effort, never throws)
           if (app.health_check_enabled && app.health_check_path) {

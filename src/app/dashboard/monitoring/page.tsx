@@ -75,8 +75,8 @@ export default function MonitoringPage() {
     const latestCheck =
       activeChecks.length > 0
         ? [...activeChecks].sort(
-            (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
-          )[0]
+          (a, b) => new Date(b.checked_at).getTime() - new Date(a.checked_at).getTime()
+        )[0]
         : null;
 
     return {
@@ -146,11 +146,10 @@ export default function MonitoringPage() {
               <button
                 key={win}
                 onClick={() => setActiveWindow(win)}
-                className={`rounded px-2.5 py-1 text-xs font-mono transition-colors ${
-                  activeWindow === win
+                className={`rounded px-2.5 py-1 text-xs font-mono transition-colors ${activeWindow === win
                     ? "bg-primary text-primary-foreground font-semibold"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {win}
               </button>
@@ -217,16 +216,15 @@ export default function MonitoringPage() {
           value={
             aggregateStats?.latestCheck
               ? new Date(aggregateStats.latestCheck.checked_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
+                hour: "2-digit",
+                minute: "2-digit",
+              })
               : "Never"
           }
           subtitle={
             aggregateStats?.latestCheck
-              ? `Status: ${aggregateStats.latestCheck.status.toUpperCase()} (${
-                  aggregateStats.latestCheck.response_time ?? "—"
-                }ms)`
+              ? `Status: ${aggregateStats.latestCheck.status.toUpperCase()} (${aggregateStats.latestCheck.response_time ?? "—"
+              }ms)`
               : "Scheduled every 10 minutes"
           }
           icon={<Activity className="h-4 w-4" />}
@@ -365,9 +363,8 @@ export default function MonitoringPage() {
                   >
                     <div className="flex items-start gap-2.5">
                       <ShieldAlert
-                        className={`h-4 w-4 mt-0.5 ${
-                          inc.status === "open" ? "text-red-500" : "text-emerald-500"
-                        }`}
+                        className={`h-4 w-4 mt-0.5 ${inc.status === "open" ? "text-red-500" : "text-emerald-500"
+                          }`}
                       />
                       <div>
                         <div className="font-medium text-foreground">

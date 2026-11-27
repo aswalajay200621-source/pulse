@@ -21,17 +21,28 @@ const HC_TIMEOUT_MS = 10000;
 const MAX_EXCERPT_BYTES = 500;
 const CONSECUTIVE_FAILURES_FOR_ALERT = 3;
 
-/** Validate that a health check path is a safe relative path */
-export function validateHealthCheckPath(path: string): { valid: boolean; error?: string } {
-  if (!path) return { valid: false, error: "Path is required." };
-  const trimmed = path.trim();
-  if (!trimmed.startsWith("/")) return { valid: false, error: "Health check path must start with /." };
-  if (trimmed.length > 500) return { valid: false, error: "Path too long." };
-  // No query strings, no fragments, no protocol
-  if (trimmed.includes("?") || trimmed.includes("#") || trimmed.includes("://")) {
-    return { valid: false, error: "Path must be a relative path with no query string or fragment." };
+/** Validate that a health check path or full URL is safe */
+export function validateHealthCheckPath(input: string): { valid: boolean; error?: string } {
+  if (!input) return { valid: false, error: "Health check URL or path is required." };
+  const trimmed = input.trim();
+  if (trimmed.length > 500) return { valid: false, error: "URL or path is too long." };
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return { valid: false, error: "Health check URL must use http or https." };
+      }
+      return { valid: true };
+    } catch {
+      return { valid: false, error: "Invalid health check URL." };
+    }
   }
-  // Only safe characters
+
+  if (!trimmed.startsWith("/")) return { valid: false, error: "Path must start with / or be a full https:// URL." };
+  if (trimmed.includes("?") || trimmed.includes("#") || trimmed.includes("://")) {
+    return { valid: false, error: "Relative path cannot contain query strings or fragments." };
+  }
   if (!/^[a-zA-Z0-9\-_/.]+$/.test(trimmed)) {
     return { valid: false, error: "Path contains invalid characters." };
   }
@@ -40,23 +51,26 @@ export function validateHealthCheckPath(path: string): { valid: boolean; error?:
 
 /**
  * Perform an SSRF-safe health check request.
- * Returns a scrubbed excerpt of the response body.
+ * Accepts either a full URL (e.g. https://api.example.com/api/health) or a relative path.
+ * Treats 404 or HTML responses as "Health check not set up correctly".
  */
 export async function runHealthCheck(
   baseUrl: string,
-  healthPath: string
+  healthPathOrUrl: string
 ): Promise<HealthCheckResult> {
-  // Compose full URL and re-validate with SSRF guard
   let fullUrl: string;
   try {
-    fullUrl = new URL(healthPath, baseUrl).toString();
+    const trimmed = healthPathOrUrl.trim();
+    fullUrl = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? trimmed
+      : new URL(trimmed, baseUrl).toString();
   } catch {
     return { status: "error", statusCode: null, responseExcerpt: null, errorMessage: "Invalid health check URL." };
   }
 
   const validation = await validateApplicationUrl(fullUrl);
   if (!validation.valid || !validation.normalizedUrl) {
-    return { status: "error", statusCode: null, responseExcerpt: null, errorMessage: validation.error || "SSRF validation failed." };
+    return { status: "error", statusCode: null, responseExcerpt: null, errorMessage: validation.error || "URL blocked by security check." };
   }
 
   const controller = new AbortController();
@@ -75,29 +89,40 @@ export async function runHealthCheck(
 
     clearTimeout(timer);
 
-    // Read a small excerpt of the body
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
     const bodyText = await response.text().catch(() => "");
     const rawExcerpt = bodyText.slice(0, MAX_EXCERPT_BYTES);
     const responseExcerpt = scrubString(rawExcerpt);
 
-    // Treat HTTP 200 as healthy; also check JSON payload for status fields
-    if (response.status === 200) {
+    // 404 or HTML page means health check is not set up properly
+    const trimmedBody = bodyText.trim().toLowerCase();
+    const isHtml = contentType.includes("text/html") || trimmedBody.startsWith("<!doctype") || trimmedBody.startsWith("<html");
+    if (response.status === 404 || isHtml) {
+      return {
+        status: "unhealthy",
+        statusCode: response.status,
+        responseExcerpt,
+        errorMessage: "Health check not set up correctly",
+      };
+    }
+
+    if (response.status >= 200 && response.status < 300) {
       try {
         const json = JSON.parse(bodyText);
-        if (json.status === "error" || json.ok === false) {
-          return { status: "unhealthy", statusCode: 200, responseExcerpt, errorMessage: "Health endpoint reported error status." };
+        if (json.status === "error" || json.ok === false || json.database === "unreachable") {
+          return { status: "unhealthy", statusCode: response.status, responseExcerpt, errorMessage: "Database not reachable" };
         }
       } catch {
-        // Not JSON — that's fine, 200 is healthy
+        // Non-JSON 2xx (e.g. "ok") is fine
       }
-      return { status: "healthy", statusCode: 200, responseExcerpt, errorMessage: null };
+      return { status: "healthy", statusCode: response.status, responseExcerpt, errorMessage: null };
     }
 
     return {
       status: "unhealthy",
       statusCode: response.status,
       responseExcerpt,
-      errorMessage: `HTTP ${response.status}`,
+      errorMessage: response.status === 503 ? "Database not reachable" : `Server error (${response.status})`,
     };
   } catch (err: unknown) {
     clearTimeout(timer);
@@ -106,7 +131,7 @@ export async function runHealthCheck(
       status: isTimeout ? "timeout" : "error",
       statusCode: null,
       responseExcerpt: null,
-      errorMessage: isTimeout ? `Timed out after ${HC_TIMEOUT_MS}ms` : err instanceof Error ? err.message : "Network error",
+      errorMessage: isTimeout ? "No response after 10 seconds" : "Could not connect to health endpoint",
     };
   }
 }
