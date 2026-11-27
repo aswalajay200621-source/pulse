@@ -164,7 +164,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const newSeverity = deriveSeverity(route, newCount24h, new Date(existingGroup.first_seen).getTime());
 
     // Reopen resolved groups when they recur
-    const newStatus = existingGroup.status === "resolved" ? "open" : existingGroup.status;
+    const reopened = existingGroup.status === "resolved";
+    const newStatus = reopened ? "open" : existingGroup.status;
 
     await supabaseAdmin.from("error_groups").update({
       last_seen: nowIso,
@@ -174,6 +175,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       severity: newSeverity,
       status: newStatus,
     }).eq("id", groupId);
+
+    if (reopened) {
+      await supabaseAdmin.from("alerts").insert({
+        user_id: ingestKey.user_id,
+        application_id: ingestKey.application_id,
+        severity: "high",
+        title: "This error came back",
+        description: `A previously resolved error ("${title}") happened again.`,
+      });
+    }
   } else {
     isNewGroup = true;
     const severity = deriveSeverity(route, 1, Date.now());
