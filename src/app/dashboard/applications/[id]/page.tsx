@@ -244,35 +244,26 @@ export default function ApplicationDetailsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Security Summary &amp; Header Posture</CardTitle>
-                <CardDescription className="text-xs">Automated TLS validation and HTTP header configurations</CardDescription>
+                <CardTitle className="text-sm font-semibold">Security Summary</CardTitle>
+                <CardDescription className="text-xs">Security issues found on this app — run a scan to get the latest results</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="rounded-lg border border-border/60 bg-card p-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">X-Content-Type-Options Header Absent</span>
-                    <StatusBadge status="medium" />
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Browsers might MIME-sniff response types away from declared content-type, creating subtle security risks.
-                  </p>
-                  <div className="rounded bg-muted/40 p-2 text-[11px] text-muted-foreground">
-                    <span className="font-semibold text-foreground">Recommendation: </span>
-                    Set X-Content-Type-Options: nosniff on all HTTP responses.
-                  </div>
+                <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                  <ShieldCheck className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
+                  Run a security scan to see issues found on this app.
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Recent Application Alerts</CardTitle>
-                <CardDescription className="text-xs">Incident triggers logged during check routines</CardDescription>
+                <CardTitle className="text-sm font-semibold">Recent Alerts</CardTitle>
+                <CardDescription className="text-xs">Problems Pulse found on this app</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-center text-xs text-muted-foreground">
                   <ShieldCheck className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
-                  All clear. No active downtime incidents or unhandled alerts for this endpoint.
+                  No active alerts for this app. If something breaks, it will show up here.
                 </div>
               </CardContent>
             </Card>

@@ -163,7 +163,11 @@ export function UptimeBarStrip({
       </div>
       <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
         <span>30 days ago</span>
-        <span className="text-emerald-500 dark:text-emerald-400 font-medium">99.98% Uptime</span>
+        <span className="text-emerald-500 dark:text-emerald-400 font-medium">
+          {bars.length > 0
+            ? `${Math.round((bars.filter((b) => b.status === "up").length / bars.length) * 100)}% Uptime`
+            : "No data yet"}
+        </span>
         <span>Today</span>
       </div>
     </div>

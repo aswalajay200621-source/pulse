@@ -123,7 +123,7 @@ export default function MonitoringPage() {
             Uptime & Performance Monitoring
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Real-time HTTP/HTTPS availability checks every 10 minutes with SSRF protection.
+            Pulse checks your apps automatically every 10 minutes and alerts you if anything goes down or slows down.
           </p>
         </div>
 
@@ -241,7 +241,7 @@ export default function MonitoringPage() {
               Response Time History ({activeWindow})
             </CardTitle>
             <CardDescription className="text-xs">
-              Measured HTTP/HTTPS latency from scheduled background checks
+              How fast your app responds — measured every 10 minutes
             </CardDescription>
           </div>
           <span className="text-xs font-mono text-muted-foreground">
@@ -264,7 +264,7 @@ export default function MonitoringPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Monitored Applications</CardTitle>
           <CardDescription className="text-xs">
-            Current status, latest latency, and {activeWindow} uptime per application
+            Current status, response speed, and {activeWindow} uptime per app
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -283,7 +283,7 @@ export default function MonitoringPage() {
                   <tr>
                     <th className="py-2.5 px-4 font-medium">Application</th>
                     <th className="py-2.5 px-4 font-medium">Status</th>
-                    <th className="py-2.5 px-4 font-medium">Latest Latency</th>
+                    <th className="py-2.5 px-4 font-medium">Response Time</th>
                     <th className="py-2.5 px-4 font-medium">Uptime ({activeWindow})</th>
                     <th className="py-2.5 px-4 font-medium text-right">Last Checked</th>
                   </tr>

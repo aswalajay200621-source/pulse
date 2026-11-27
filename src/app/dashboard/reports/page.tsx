@@ -24,12 +24,10 @@ export default function WeeklyReportsPage() {
     if (res.error) setError(res.error);
     else if (res.reports) {
       setReports(res.reports);
-      if (res.reports.length > 0 && !selected) {
-        setSelected(res.reports[0]);
-      }
+      setSelected((prev) => (prev ? prev : res.reports![0] ?? null));
     }
     setLoading(false);
-  }, [selected]);
+  }, []);
 
   React.useEffect(() => {
     loadReports();

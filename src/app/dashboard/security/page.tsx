@@ -121,7 +121,7 @@ export default function SecurityScansPage() {
             Security Scans & Vulnerability Audit
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Secret detection, dependency vulnerabilities (OSV), and HTTP security header analysis.
+            Checks your apps for exposed secrets, insecure settings, and known software weaknesses.
           </p>
         </div>
 
@@ -228,7 +228,7 @@ export default function SecurityScansPage() {
             Security Findings ({filteredFindings.length})
           </CardTitle>
           <CardDescription className="text-xs">
-            Real findings from secret scanning, OSV vulnerability database, and HTTP header analysis.
+            Real security issues found on your apps — things like exposed passwords, missing protections, and known weaknesses.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
